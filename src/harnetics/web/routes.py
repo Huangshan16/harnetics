@@ -12,6 +12,7 @@ from fastapi import Request
 from fastapi import UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+import yaml
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
@@ -60,15 +61,24 @@ def list_documents(
 
 @router.post("/documents/import")
 async def import_document(request: Request, file: UploadFile = File(...)):
-    if not file.filename:
+    filename = file.filename or ""
+    if not filename:
         raise HTTPException(status_code=400, detail="missing filename")
+    if "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="invalid filename")
 
-    target_path = Path(request.app.state.settings.raw_upload_dir) / file.filename
+    safe_name = Path(filename).name
+    if safe_name != filename or safe_name in {"", ".", ".."}:
+        raise HTTPException(status_code=400, detail="invalid filename")
+
+    target_path = Path(request.app.state.settings.raw_upload_dir) / safe_name
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.write_bytes(await file.read())
 
     try:
         request.app.state.import_service.import_file(target_path)
+    except yaml.YAMLError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -77,7 +87,10 @@ async def import_document(request: Request, file: UploadFile = File(...)):
 
 @router.get("/documents/{document_id}", response_class=HTMLResponse)
 def document_detail(request: Request, document_id: int):
-    detail = request.app.state.repository.get_document_detail(document_id)
+    try:
+        detail = request.app.state.repository.get_document_detail(document_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="document not found") from exc
     return templates.TemplateResponse(
         request,
         "document_detail.html",
