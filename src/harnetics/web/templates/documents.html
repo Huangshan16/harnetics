@@ -1,0 +1,48 @@
+<!--
+[INPUT]: 依赖 base.html、documents 列表和筛选字段
+[OUTPUT]: 对外提供文档目录、筛选器和上传入口
+[POS]: web/templates 的文档目录页，承载 catalog 浏览与导入入口
+[PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
+-->
+{% extends "base.html" %}
+{% block title %}Documents | Harnetics{% endblock %}
+{% block content %}
+<section>
+  <h1>Document Catalog</h1>
+  <form action="/documents/import" method="post" enctype="multipart/form-data">
+    <label>
+      Import file
+      <input type="file" name="file" required>
+    </label>
+    <button type="submit">Upload</button>
+  </form>
+</section>
+
+<section>
+  <h2>Filters</h2>
+  <form action="/documents" method="get">
+    <input name="department" placeholder="Department" value="{{ filters.department }}">
+    <input name="doc_type" placeholder="Doc type" value="{{ filters.doc_type }}">
+    <input name="system_level" placeholder="System level" value="{{ filters.system_level }}">
+    <input name="query" placeholder="Search" value="{{ filters.query }}">
+    <button type="submit">Filter</button>
+  </form>
+</section>
+
+<section>
+  <h2>Documents</h2>
+  {% if documents %}
+    <ul>
+      {% for document in documents %}
+        <li>
+          <a href="/documents/{{ document.id }}">{{ document.doc_id }}</a>
+          <span>{{ document.title }}</span>
+          <span>{{ document.department }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No documents found.</p>
+  {% endif %}
+</section>
+{% endblock %}
