@@ -3,7 +3,24 @@
 # [POS]: tests 目录中的 catalog 路由契约测试，先锁定最小 HTTP 行为
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
+
+from harnetics.app import create_app
+
+
+def test_default_create_app_can_serve_documents_in_temp_cwd(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    client = TestClient(create_app())
+
+    response = client.get("/documents")
+
+    assert response.status_code == 200
+    assert "No documents found." in response.text
 
 
 def test_upload_route_rejects_missing_metadata(temp_app) -> None:
@@ -25,6 +42,16 @@ def test_documents_page_lists_and_filters_imported_docs(imported_fixture_app) ->
     assert response.status_code == 200
     assert "DOC-SYS-001" in response.text
     assert "DOC-DES-001" not in response.text
+
+
+def test_documents_page_treats_empty_department_as_unfiltered(imported_fixture_app) -> None:
+    client = TestClient(imported_fixture_app)
+
+    response = client.get("/documents?department=")
+
+    assert response.status_code == 200
+    assert "DOC-SYS-001" in response.text
+    assert "DOC-DES-001" in response.text
 
 
 def test_document_detail_shows_sections(imported_fixture_app) -> None:

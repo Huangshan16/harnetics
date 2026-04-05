@@ -17,6 +17,12 @@ router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
 
+def _normalize_filter(value: str | None) -> str | None:
+    if value is None or value == "":
+        return None
+    return value
+
+
 @router.get("/documents", response_class=HTMLResponse)
 def list_documents(
     request: Request,
@@ -25,6 +31,10 @@ def list_documents(
     system_level: str | None = None,
     query: str | None = None,
 ):
+    department = _normalize_filter(department)
+    doc_type = _normalize_filter(doc_type)
+    system_level = _normalize_filter(system_level)
+    query = _normalize_filter(query)
     repository = request.app.state.repository
     documents = repository.list_documents(
         department=department,
