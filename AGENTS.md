@@ -2,7 +2,7 @@
 Markdown + YAML + docs-first
 
 <directory>
-docs/ - 项目文档真相源，承载设计、规格、执行计划、生成物与外部参考 (5 子目录: design-docs, exec-plans, generated, product-specs, references)
+docs/ - 项目文档真相源，承载设计、规格、执行计划、生成物、技能流程产物与外部参考 (6 子目录: design-docs, exec-plans, generated, product-specs, references, superpowers)
 fixtures/ - 航天领域样本文档语料，模拟跨部门、跨层级、跨版本对齐场景，作为未来解析、检索、评测与演示输入
 </directory>
 
@@ -24,3 +24,4 @@ ARCHITECTURE.md - 当前系统结构、数据流、边界与演进方向
 - 2026-04-05: 初始化 canonical 文档目录，建立 `docs/` 真相源
 - 2026-04-05: 将历史根目录 PRD 迁入 `docs/product-specs/`，将架构叙事迁入 `docs/design-docs/`
 - 2026-04-05: 为 `docs/` 与 `fixtures/` 补齐分形 `AGENTS.md` 导航
+- 2026-04-05: 新增 `docs/superpowers/specs/`，存放经 brainstorming 确认的设计 spec

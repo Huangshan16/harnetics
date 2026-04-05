@@ -17,6 +17,7 @@ exec-plans/: 执行中的计划、已完成计划与技术债跟踪。
 generated/: 生成物与结构化工件的落点。
 product-specs/: 产品规格、用户流程与 PRD。
 references/: 外部参考、工具说明与 LLM 辅助材料。
+superpowers/: 通过技能流程产出的工作文档与阶段性设计 spec。
 
 法则
 - `docs/` 只保留当前有效文档；历史材料若仍需存在，必须明确标注归档属性。
