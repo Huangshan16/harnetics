@@ -1,6 +1,6 @@
 # [INPUT]: 依赖 FastAPI 请求对象、Jinja2 模板、Repository、ImportService 与 draft services
-# [OUTPUT]: 对外提供文档导入、列表、详情与草稿工作流路由
-# [POS]: harnetics/web 的 HTTP 入口，负责 catalog 页面与草稿生成/编辑/导出闭环
+# [OUTPUT]: 对外提供根路径跳转、文档导入、列表、详情与草稿工作流路由
+# [POS]: harnetics/web 的 HTTP 入口，负责首页导航、catalog 页面与草稿生成/编辑/导出闭环
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
 from pathlib import Path
@@ -27,6 +27,11 @@ def _normalize_filter(value: str | None) -> str | None:
     if value is None or value == "":
         return None
     return value
+
+
+@router.get("/")
+def root():
+    return RedirectResponse("/documents")
 
 
 @router.get("/documents", response_class=HTMLResponse)

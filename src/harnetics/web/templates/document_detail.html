@@ -7,23 +7,66 @@
 {% extends "base.html" %}
 {% block title %}{{ detail.document.doc_id }} | Harnetics{% endblock %}
 {% block content %}
-<article>
-  <header>
-    <h1>{{ detail.document.doc_id }}</h1>
-    <p>{{ detail.document.title }}</p>
-    <p>{{ detail.document.department }} | {{ detail.document.doc_type }} | {{ detail.document.system_level }}</p>
-  </header>
+<div class="mb-6 flex items-center justify-between">
+  <div>
+    <div class="text-sm breadcrumbs mb-2 text-base-content/70">
+      <ul>
+        <li><a href="/documents">文档库</a></li>
+        <li>{{ detail.document.doc_id }}</li>
+      </ul>
+    </div>
+    <h1 class="text-3xl font-bold font-mono">{{ detail.document.doc_id }}</h1>
+    <h2 class="text-xl mt-2">{{ detail.document.title }}</h2>
+  </div>
+  <a href="/documents" class="btn btn-outline btn-sm">返回文档库</a>
+</div>
 
-  <section>
-    <h2>Sections</h2>
-    {% for section in detail.sections %}
-      <section>
-        <h3>{{ section.heading }}</h3>
-        <pre>{{ section.content }}</pre>
-      </section>
-    {% else %}
-      <p>No sections available.</p>
-    {% endfor %}
-  </section>
-</article>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+  <!-- 左侧/侧边栏：元数据 -->
+  <aside class="col-span-1">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+      <div class="card-body p-4">
+        <h3 class="card-title text-base border-b pb-2 mb-2">文档属性</h3>
+        <dl class="space-y-3 text-sm">
+          <div>
+            <dt class="text-base-content/60">部门</dt>
+            <dd class="font-medium mt-1"><span class="badge badge-primary">{{ detail.document.department }}</span></dd>
+          </div>
+          <div>
+            <dt class="text-base-content/60">文档类型</dt>
+            <dd class="font-medium mt-1">{{ detail.document.doc_type }}</dd>
+          </div>
+          <div>
+            <dt class="text-base-content/60">系统层级</dt>
+            <dd class="font-medium mt-1">{{ detail.document.system_level }}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 右侧：章节列表 -->
+  <main class="col-span-1 md:col-span-3">
+    <h3 class="text-xl font-bold mb-4">文档章节</h3>
+    <div class="space-y-4">
+      {% for section in detail.sections %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+          <div class="card-body">
+            <h4 class="card-title text-lg border-b pb-2">{{ section.heading }}</h4>
+            <div class="bg-base-200 p-4 rounded-md mt-2 overflow-x-auto text-sm">
+              <pre class="whitespace-pre-wrap font-mono">{{ section.content }}</pre>
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <div class="alert alert-warning shadow-lg">
+          <div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            <span>无章节数据。</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </main>
+</div>
 {% endblock %}
