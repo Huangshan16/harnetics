@@ -5,7 +5,7 @@
 
 成员清单
 AGENTS.md: `generated/` 的局部地图，说明结构化工件的落点。
-db-schema.md: 当前存储面与目标数据模型的说明页。
+db-schema.md: 当前 SQLite schema 的说明页，记录表归属、约束与边界。
 
 法则
 - 这里只放生成物或结构化工件，不放手写规格。

@@ -1,0 +1,29 @@
+<!--
+[INPUT]: 依赖 base.html、detail.document 与 detail.sections
+[OUTPUT]: 对外提供单篇文档详情与章节展示
+[POS]: web/templates 的文档详情页，承载 sections 的可读视图
+[PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
+-->
+{% extends "base.html" %}
+{% block title %}{{ detail.document.doc_id }} | Harnetics{% endblock %}
+{% block content %}
+<article>
+  <header>
+    <h1>{{ detail.document.doc_id }}</h1>
+    <p>{{ detail.document.title }}</p>
+    <p>{{ detail.document.department }} | {{ detail.document.doc_type }} | {{ detail.document.system_level }}</p>
+  </header>
+
+  <section>
+    <h2>Sections</h2>
+    {% for section in detail.sections %}
+      <section>
+        <h3>{{ section.heading }}</h3>
+        <pre>{{ section.content }}</pre>
+      </section>
+    {% else %}
+      <p>No sections available.</p>
+    {% endfor %}
+  </section>
+</article>
+{% endblock %}
