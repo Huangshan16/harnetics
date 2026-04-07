@@ -7,6 +7,8 @@
 
 # Harnetics MVP PRD v3.1 — 跨部门文档对齐系统
 
+> **设计准则最高约束：一切设计必须来自设计系统的颜色和组件 (shadcn/ui + Tailwind)。所有界面排印、交互和反馈需基于定义好的 Design System 执行。**
+
 > 本文档是 `docs/design-docs/aerospace-mvp-v3.md`（v3 架构文档）§9 的完整展开，可直接用于开发执行。
 
 ---
