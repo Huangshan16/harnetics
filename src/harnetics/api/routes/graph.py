@@ -1,6 +1,6 @@
 """
-# [INPUT]: 依赖 graph.query.DocumentGraph、graph.store (get_document)
-# [OUTPUT]: 对外提供 router: GET /api/graph、/upstream、/downstream、/stale、/related
+# [INPUT]: 依赖 graph.query.DocumentGraph、graph.store (get_document/get_connection)
+# [OUTPUT]: 对外提供 router: GET /api/graph、/edges、/upstream、/downstream、/stale、/related
 # [POS]: api/routes 的图谱域端点，US4 文档关系图谱的 HTTP 接口
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 """
@@ -24,6 +24,25 @@ def full_graph(
         department=department or None,
         system_level=system_level or None,
     )
+
+
+@router.get("/edges")
+def list_edges() -> list[dict]:
+    """返回所有边的 JSON 列表（前端图谱 / 关系面板使用）。"""
+    with store.get_connection() as conn:
+        rows = conn.execute(
+            "SELECT edge_id, source_doc_id, target_doc_id, relation, confidence FROM document_edges"
+        ).fetchall()
+    return [
+        {
+            "edge_id": r["edge_id"],
+            "source_doc_id": r["source_doc_id"],
+            "target_doc_id": r["target_doc_id"],
+            "relation": r["relation"],
+            "confidence": r["confidence"],
+        }
+        for r in rows
+    ]
 
 
 @router.get("/upstream/{doc_id}")

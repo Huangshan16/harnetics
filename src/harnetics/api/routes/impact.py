@@ -1,6 +1,6 @@
 """
 # [INPUT]: 依赖 engine.impact_analyzer.ImpactAnalyzer、graph.store (impact_reports 表)
-# [OUTPUT]: 对外提供 router: POST /api/impact/analyze、GET /api/impact/{id}、GET /api/impact/{id}/export
+# [OUTPUT]: 对外提供 router: POST /api/impact/analyze、GET /api/impact、GET /api/impact/{id}、GET /api/impact/{id}/export
 # [POS]: api/routes 的影响分析域端点，US3 影响分析的 HTTP 入口
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 """
@@ -23,6 +23,28 @@ class ImpactAnalyzeRequest(BaseModel):
     old_version: str = ""
     new_version: str = ""
     changed_section_ids: list[str] = []
+
+
+@router.get("")
+def list_impact_reports() -> list[dict]:
+    """列出所有影响分析报告（摘要）。"""
+    with store.get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM impact_reports ORDER BY created_at DESC"
+        ).fetchall()
+    return [
+        {
+            "report_id": r["report_id"],
+            "trigger_doc_id": r["trigger_doc_id"],
+            "old_version": r["old_version"],
+            "new_version": r["new_version"],
+            "summary": r["summary"],
+            "changed_sections": json.loads(r["changed_sections_json"] or "[]"),
+            "impacted_docs": json.loads(r["impacted_docs_json"] or "[]"),
+            "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
 
 
 @router.post("/analyze")
