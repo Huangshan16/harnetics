@@ -5,6 +5,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+import os
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,4 +33,14 @@ class Settings:
 
 
 def get_settings() -> Settings:
-    return Settings()
+    """读取环境变量覆盖默认值。"""
+    graph_db = os.environ.get("HARNETICS_GRAPH_DB_PATH")
+    chroma_dir = os.environ.get("HARNETICS_CHROMA_DIR")
+    llm_model = os.environ.get("HARNETICS_LLM_MODEL")
+    llm_url = os.environ.get("HARNETICS_LLM_BASE_URL")
+    return Settings(
+        graph_db_path=Path(graph_db) if graph_db else Path("var/harnetics.db"),
+        chromadb_path=Path(chroma_dir) if chroma_dir else Path("var/chroma/"),
+        llm_model=llm_model or "ollama/gemma4:26b-it-a4b-q4_K_M",
+        llm_base_url=llm_url or "http://localhost:11434",
+    )

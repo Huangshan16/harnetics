@@ -1,6 +1,6 @@
-# [INPUT]: 依赖 sqlite3、pathlib 与同目录 schema.sql
-# [OUTPUT]: 对外提供 init_db() 和 get_connection() 上下文管理器
-# [POS]: graph 包的 SQLite 连接管理器，负责图谱库初始化与连接生命周期
+# [INPUT]: 依赖 sqlite3、pathlib、同目录 schema.sql 与 models 包 (DocumentNode/Section/DocumentEdge/ICDParameter)
+# [OUTPUT]: 对外提供 init_db()、get_connection() 及文档/章节/边/ICD 参数的 CRUD 函数
+# [POS]: graph 包的 SQLite 存储层，负责图谱库初始化、连接管理和全量读写操作
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
 from __future__ import annotations
@@ -48,3 +48,208 @@ def _connect(path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
     return conn
+
+
+# ================================================================
+# CRUD — 文档
+# ================================================================
+
+def insert_document(doc: "DocumentNode") -> None:
+    with get_connection() as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO documents
+               (doc_id, title, doc_type, department, system_level,
+                engineering_phase, version, status, content_hash, file_path)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (doc.doc_id, doc.title, doc.doc_type, doc.department,
+             doc.system_level, doc.engineering_phase, doc.version,
+             doc.status, doc.content_hash, doc.file_path),
+        )
+
+
+def insert_sections(sections: list["Section"]) -> None:
+    if not sections:
+        return
+    with get_connection() as conn:
+        conn.executemany(
+            """INSERT OR REPLACE INTO sections
+               (section_id, doc_id, heading, content, level, order_index, tags)
+               VALUES (?,?,?,?,?,?,?)""",
+            [(s.section_id, s.doc_id, s.heading, s.content,
+              s.level, s.order_index, s.tags) for s in sections],
+        )
+
+
+def insert_edges(edges: list["DocumentEdge"]) -> None:
+    if not edges:
+        return
+    with get_connection() as conn:
+        conn.executemany(
+            """INSERT INTO edges
+               (source_doc_id, source_section_id, target_doc_id,
+                target_section_id, relation, confidence, created_by)
+               VALUES (?,?,?,?,?,?,?)""",
+            [(e.source_doc_id, e.source_section_id, e.target_doc_id,
+              e.target_section_id, e.relation, e.confidence, e.created_by)
+             for e in edges],
+        )
+
+
+def insert_icd_parameters(params: list["ICDParameter"]) -> None:
+    if not params:
+        return
+    with get_connection() as conn:
+        conn.executemany(
+            """INSERT OR REPLACE INTO icd_parameters
+               (param_id, doc_id, name, interface_type, subsystem_a,
+                subsystem_b, value, unit, range_, owner_department, version)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            [(p.param_id, p.doc_id, p.name, p.interface_type,
+              p.subsystem_a, p.subsystem_b, p.value, p.unit,
+              p.range_, p.owner_department, p.version) for p in params],
+        )
+
+
+# ================================================================
+# CRUD — 查询
+# ================================================================
+
+def _row_to_document(row: sqlite3.Row) -> "DocumentNode":
+    from harnetics.models.document import DocumentNode
+    return DocumentNode(
+        doc_id=row["doc_id"], title=row["title"], doc_type=row["doc_type"],
+        department=row["department"], system_level=row["system_level"],
+        engineering_phase=row["engineering_phase"], version=row["version"],
+        status=row["status"], content_hash=row["content_hash"],
+        file_path=row["file_path"], created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def _row_to_section(row: sqlite3.Row) -> "Section":
+    from harnetics.models.document import Section
+    return Section(
+        section_id=row["section_id"], doc_id=row["doc_id"],
+        heading=row["heading"], content=row["content"],
+        level=row["level"], order_index=row["order_index"],
+        tags=row["tags"],
+    )
+
+
+def _row_to_edge(row: sqlite3.Row) -> "DocumentEdge":
+    from harnetics.models.document import DocumentEdge
+    return DocumentEdge(
+        edge_id=row["edge_id"], source_doc_id=row["source_doc_id"],
+        source_section_id=row["source_section_id"],
+        target_doc_id=row["target_doc_id"],
+        target_section_id=row["target_section_id"],
+        relation=row["relation"], confidence=row["confidence"],
+        created_by=row["created_by"], created_at=row["created_at"],
+    )
+
+
+def _row_to_icd(row: sqlite3.Row) -> "ICDParameter":
+    from harnetics.models.icd import ICDParameter
+    return ICDParameter(
+        param_id=row["param_id"], doc_id=row["doc_id"],
+        name=row["name"], interface_type=row["interface_type"],
+        subsystem_a=row["subsystem_a"], subsystem_b=row["subsystem_b"],
+        value=row["value"], unit=row["unit"], range_=row["range_"],
+        owner_department=row["owner_department"], version=row["version"],
+    )
+
+
+def get_document(doc_id: str) -> "DocumentNode | None":
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM documents WHERE doc_id=?", (doc_id,)).fetchone()
+        return _row_to_document(row) if row else None
+
+
+def get_documents(
+    department: str | None = None,
+    doc_type: str | None = None,
+    system_level: str | None = None,
+    status: str | None = None,
+    q: str | None = None,
+) -> list["DocumentNode"]:
+    clauses: list[str] = []
+    params: list[str] = []
+    if department:
+        clauses.append("department = ?")
+        params.append(department)
+    if doc_type:
+        clauses.append("doc_type = ?")
+        params.append(doc_type)
+    if system_level:
+        clauses.append("system_level = ?")
+        params.append(system_level)
+    if status:
+        clauses.append("status = ?")
+        params.append(status)
+    if q:
+        clauses.append("(title LIKE ? OR doc_id LIKE ?)")
+        params.extend([f"%{q}%", f"%{q}%"])
+    where = " AND ".join(clauses)
+    sql = "SELECT * FROM documents"
+    if where:
+        sql += " WHERE " + where
+    sql += " ORDER BY doc_id"
+    with get_connection() as conn:
+        return [_row_to_document(r) for r in conn.execute(sql, params).fetchall()]
+
+
+def get_sections(doc_id: str) -> list["Section"]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM sections WHERE doc_id=? ORDER BY order_index",
+            (doc_id,),
+        ).fetchall()
+        return [_row_to_section(r) for r in rows]
+
+
+def get_icd_parameters(doc_id: str | None = None) -> list["ICDParameter"]:
+    with get_connection() as conn:
+        if doc_id:
+            rows = conn.execute(
+                "SELECT * FROM icd_parameters WHERE doc_id=?", (doc_id,)
+            ).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM icd_parameters").fetchall()
+        return [_row_to_icd(r) for r in rows]
+
+
+def get_icd_parameter(param_id: str) -> "ICDParameter | None":
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM icd_parameters WHERE param_id=?", (param_id,)
+        ).fetchone()
+        return _row_to_icd(row) if row else None
+
+
+def delete_document(doc_id: str) -> None:
+    with get_connection() as conn:
+        conn.execute("DELETE FROM documents WHERE doc_id=?", (doc_id,))
+
+
+def get_edges_for_doc(doc_id: str) -> tuple[list["DocumentEdge"], list["DocumentEdge"]]:
+    with get_connection() as conn:
+        up = conn.execute(
+            "SELECT * FROM edges WHERE target_doc_id=?", (doc_id,)
+        ).fetchall()
+        down = conn.execute(
+            "SELECT * FROM edges WHERE source_doc_id=?", (doc_id,)
+        ).fetchall()
+        return ([_row_to_edge(r) for r in up], [_row_to_edge(r) for r in down])
+
+
+def search_documents(q: str) -> list["DocumentNode"]:
+    pattern = f"%{q}%"
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT DISTINCT d.* FROM documents d
+               LEFT JOIN sections s ON s.doc_id = d.doc_id
+               WHERE d.title LIKE ? OR d.doc_id LIKE ? OR s.content LIKE ?
+               ORDER BY d.doc_id""",
+            (pattern, pattern, pattern),
+        ).fetchall()
+        return [_row_to_document(r) for r in rows]

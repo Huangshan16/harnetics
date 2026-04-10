@@ -1,0 +1,155 @@
+<!--
+[INPUT]: 依赖 base.html 继承、vis-network.js CDN、/api/graph API
+[OUTPUT]: 渲染文档关系图谱：节点点击、部门/层级筛选、上下游高亮
+[POS]: web/templates/graph 的图谱可视化页，US4 的核心交互页面
+[PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
+-->
+{% extends "base.html" %}
+
+{% block title %}文档图谱 — Harnetics{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+  <!-- 页眉 + 筛选 -->
+  <div class="flex flex-wrap items-center gap-3">
+    <h1 class="text-2xl font-bold flex-1">文档关系图谱</h1>
+    <select id="filter-dept" class="select select-bordered select-sm" onchange="reloadGraph()">
+      <option value="">所有部门</option>
+      {% for dept in departments %}
+      <option value="{{ dept }}">{{ dept }}</option>
+      {% endfor %}
+    </select>
+    <select id="filter-level" class="select select-bordered select-sm" onchange="reloadGraph()">
+      <option value="">所有层级</option>
+      {% for lvl in system_levels %}
+      <option value="{{ lvl }}">{{ lvl }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-ghost btn-sm" onclick="resetFilters()">重置</button>
+  </div>
+
+  <!-- 图谱画布 + 侧边面板 -->
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+    <!-- 画布 -->
+    <div class="lg:col-span-3">
+      <div class="card bg-base-100 shadow">
+        <div id="graph-canvas" style="height:600px;"></div>
+      </div>
+    </div>
+
+    <!-- 节点详情面板 -->
+    <div id="node-panel" class="card bg-base-100 shadow hidden lg:block">
+      <div class="card-body p-4 space-y-3">
+        <h3 class="font-semibold">节点详情</h3>
+        <p class="text-base-content/40 text-sm">点击图谱节点查看详情</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图例 -->
+  <div class="flex flex-wrap gap-4 text-xs text-base-content/60">
+    <span>形状：◆ ICD &nbsp; □ 需求 &nbsp; ○ 设计 &nbsp; △ 质量</span>
+    <span>颜色：按部门分组</span>
+    <span>虚线边：次要关联（references/supersedes）</span>
+  </div>
+</div>
+
+<!-- vis-network -->
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<script src="/static/js/graph.js"></script>
+<script>
+// ---- 全局图谱实例 -------------------------------------------------------
+let _network = null;
+
+async function reloadGraph() {
+  const dept = document.getElementById('filter-dept').value;
+  const level = document.getElementById('filter-level').value;
+  const params = new URLSearchParams();
+  if (dept) params.set('department', dept);
+  if (level) params.set('system_level', level);
+
+  const res = await fetch('/api/graph?' + params.toString());
+  const data = await res.json();
+  renderGraph(data.nodes, data.edges);
+}
+
+function resetFilters() {
+  document.getElementById('filter-dept').value = '';
+  document.getElementById('filter-level').value = '';
+  reloadGraph();
+}
+
+function renderGraph(nodes, edges) {
+  const container = document.getElementById('graph-canvas');
+  const dataset = {
+    nodes: new vis.DataSet(nodes),
+    edges: new vis.DataSet(edges),
+  };
+  const options = {
+    layout: { improvedLayout: true },
+    physics: {
+      forceAtlas2Based: { gravitationalConstant: -80, centralGravity: 0.01 },
+      solver: 'forceAtlas2Based',
+      stabilization: { iterations: 150 },
+    },
+    nodes: {
+      font: { size: 12, face: 'monospace' },
+      borderWidth: 2,
+    },
+    edges: {
+      font: { size: 10, align: 'middle' },
+      smooth: { type: 'curvedCW', roundness: 0.2 },
+    },
+    interaction: { hover: true, tooltipDelay: 200 },
+  };
+
+  if (_network) {
+    _network.setData(dataset);
+  } else {
+    _network = new vis.Network(container, dataset, options);
+    _network.on('click', onNodeClick);
+  }
+}
+
+async function onNodeClick(params) {
+  if (!params.nodes.length) return;
+  const nodeId = params.nodes[0];
+  const panel = document.getElementById('node-panel');
+  panel.classList.remove('hidden');
+
+  // 获取上下游信息
+  const [docRes, relRes] = await Promise.all([
+    fetch(`/api/documents/${nodeId}`),
+    fetch(`/api/graph/related/${nodeId}`),
+  ]);
+  const doc = docRes.ok ? await docRes.json() : null;
+  const related = relRes.ok ? await relRes.json() : [];
+
+  if (!doc) { panel.querySelector('.card-body').innerHTML = '<p class="text-error text-sm">无法加载节点信息</p>'; return; }
+
+  const relHtml = related.map(r =>
+    `<li><a href="/documents/${r.id}" class="link font-mono text-xs">${r.id}</a> <span class="text-base-content/50">${r.meta?.doc_type||''}</span></li>`
+  ).join('') || '<li class="text-base-content/40 text-xs">无相邻节点</li>';
+
+  panel.querySelector('.card-body').innerHTML = `
+    <h3 class="font-semibold text-sm">${nodeId}</h3>
+    <p class="text-sm font-medium">${doc.title || ''}</p>
+    <div class="text-xs text-base-content/60 space-y-1">
+      <div>类型：${doc.doc_type || '—'}</div>
+      <div>部门：${doc.department || '—'}</div>
+      <div>版本：${doc.version || '—'}</div>
+      <div>状态：<span class="${doc.status==='Superseded'?'text-error':'text-success'}">${doc.status || '—'}</span></div>
+    </div>
+    <div class="divider my-1"></div>
+    <h4 class="text-xs font-semibold text-base-content/70">相邻节点</h4>
+    <ul class="space-y-1">${relHtml}</ul>
+    <div class="mt-2 flex gap-1 flex-wrap">
+      <a href="/documents/${nodeId}" class="btn btn-xs btn-ghost">详情</a>
+      <a href="/impact?doc_id=${nodeId}" class="btn btn-xs btn-warning">影响分析</a>
+    </div>`;
+}
+
+// ---- 初始加载 -----------------------------------------------------------
+reloadGraph();
+</script>
+{% endblock %}

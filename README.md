@@ -1,83 +1,115 @@
 # Harnetics
 
-商业航天文档对齐产品工作台。当前实现是一条最小可运行闭环：导入受控文档，浏览目录，基于模板和来源文档生成带引注的草稿，并在浏览器里编辑与导出。
+商业航天文档对齐产品工作台。基于 FastAPI + SQLite + ChromaDB + Ollama，实现文档库管理、AI 草稿生成、评估闭环、变更影响分析与文档关系图谱。
 
-## 当前能力
+## 核心功能
 
-- 导入 Markdown front matter 文档和 YAML 接口文档
-- 将文档、章节、模板、草稿和校验结果持久化到 SQLite
-- 提供 `/documents/*` 和 `/drafts/*` Web 工作台
-- 通过本地 OpenAI-compatible LLM 生成 Markdown 草稿
-- 对草稿执行引注和最小规则校验
+| 功能模块 | 说明 |
+|---------|------|
+| 📂 文档库（US1） | 上传/浏览 Markdown 与 YAML 文档，解析章节与 ICD 参数 |
+| ✍️ 草稿生成（US2） | AI 三步生成带📎引注草稿，冲突自动标记 |
+| ⚡ 变更影响分析（US3） | BFS 遍历下游依赖图，评定 Critical/Major/Minor 危险等级 |
+| 🔗 文档图谱（US4） | vis-network 可视化关系网络，节点点击查看详情 |
+| 📊 仪表盘（US5） | 统计看板：文档数、草稿数、陈旧引用、LLM 状态 |
+| ✅ Evaluator（US6） | 8 项评估规则：引注完整性、ICD 一致性、AI 防幻觉 |
 
-## 依赖
+## 技术栈
 
-- Python `>=3.12`
-- `uv`
-- 一个本地 OpenAI-compatible 接口，默认地址是 `http://127.0.0.1:11434/v1`
+- **Web**: Python 3.12 + FastAPI + Jinja2 + HTMX + DaisyUI/Tailwind
+- **存储**: SQLite（图谱结构）+ ChromaDB（向量索引）
+- **LLM**: Ollama（gemma4:26b，via litellm）
+- **Embeddings**: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 
-当前默认模型配置在 [src/harnetics/config.py](src/harnetics/config.py)，默认值是 `gemma-3-27b-it`。如果本机没有本地模型服务，应用仍可启动，但草稿生成接口会失败。
+## 快速启动
 
-## 安装
+### 前置依赖
+
+- Python `>=3.12` + `uv`
+- [Ollama](https://ollama.ai) 并拉取模型：`ollama pull gemma4:26b-it-a4b-q4_K_M`
+
+### 安装 & 启动
 
 ```bash
+# 安装依赖
 uv sync --dev
+
+# 初始化数据库
+uv run python -m harnetics.cli.main init
+
+# 批量导入样本文档
+uv run python -m harnetics.cli.main ingest fixtures/
+
+# 启动 Web 服务
+uv run python -m harnetics.cli.main serve --reload
 ```
 
-## 启动
+默认访问 `http://localhost:8000`（首页自动跳转仪表盘）
+
+### 或使用 Docker Compose
 
 ```bash
-uv run uvicorn harnetics.app:app --app-dir src --reload
+docker compose up -d
+# 初始化并导入样本
+docker compose exec harnetics python -m harnetics.cli.main init
+docker compose exec harnetics python -m harnetics.cli.main ingest fixtures/
 ```
 
-默认访问地址：
-
-- `http://127.0.0.1:8000/`
-- `http://127.0.0.1:8000/health`
-- `http://127.0.0.1:8000/documents`
-- `http://127.0.0.1:8000/drafts/new`
-
-根路径 `/` 会重定向到 `/documents`，用于作为浏览器首页入口。
-
-运行时数据默认落在当前工作目录下的 `var/`：
-
-- `var/harnetics.db`
-- `var/uploads/`
-- `var/exports/`
-
-如果你想做隔离冒烟，不污染仓库根目录，可以从临时目录启动，但把代码入口仍指向仓库：
+## curl 冒烟测试
 
 ```bash
-export REPO_ROOT=/path/to/harnetics
-cd /tmp/harnetics-smoke
-$REPO_ROOT/.venv/bin/python -m uvicorn \
-  harnetics.app:app \
-  --app-dir $REPO_ROOT/src \
-  --host 127.0.0.1 \
-  --port 8765
-```
+# 上传文档
+curl -F file=@fixtures/requirements/DOC-SYS-001.md http://localhost:8000/api/documents/upload
+curl -F file=@fixtures/icd/DOC-ICD-001.yaml http://localhost:8000/api/documents/upload
 
-## 最小跑通路径
+# 查看文档列表
+curl http://localhost:8000/api/documents | python -m json.tool
 
-1. 启动应用。
-2. 导入样本文档。
-3. 访问 `/documents` 确认文档已入库。
-4. 访问 `/drafts/new` 生成草稿。
-5. 在草稿详情页编辑并导出 Markdown。
+# 系统状态
+curl http://localhost:8000/api/status | python -m json.tool
 
-用 `curl` 导入样本：
+# 生成草稿（需 Ollama 运行）
+curl -X POST http://localhost:8000/api/draft/generate \
+  -H 'Content-Type: application/json' \
+  -d '{"subject":"推进与结构接口草稿","related_doc_ids":["DOC-SYS-001","DOC-ICD-001"]}'
 
-```bash
-curl -F file=@fixtures/requirements/DOC-SYS-001.md http://127.0.0.1:8000/documents/import
-curl -F file=@fixtures/design/DOC-DES-001.md http://127.0.0.1:8000/documents/import
-curl -F file=@fixtures/templates/DOC-TPL-001.md http://127.0.0.1:8000/documents/import
-curl -F file=@fixtures/test_plans/DOC-TST-003.md http://127.0.0.1:8000/documents/import
+# 影响分析
+curl -X POST http://localhost:8000/api/impact/analyze \
+  -H 'Content-Type: application/json' \
+  -d '{"doc_id":"DOC-SYS-001","old_version":"v1.0","new_version":"v2.0"}'
 ```
 
 ## 测试
 
 ```bash
-uv run pytest -q
+# 单元测试（不需要 Ollama）
+uv run pytest tests/ -q --ignore=tests/test_e2e_mvp_scenario.py
+
+# 全量测试（含 E2E，需要 fixtures 目录）
+uv run pytest tests/ -q
+```
+
+## 页面导航
+
+| URL | 说明 |
+|-----|------|
+| `/dashboard` | 系统概览仪表盘 |
+| `/documents` | 文档库列表 |
+| `/documents/upload` | 上传文档 |
+| `/documents/{doc_id}` | 文档详情 + 章节 + 关系 |
+| `/drafts/workspace` | 草稿生成工作台（三步向导）|
+| `/drafts/{draft_id}` | 草稿详情 + 评估结果 |
+| `/impact` | 变更影响分析 |
+| `/graph` | 文档关系图谱 |
+
+## 运行时目录
+
+```
+var/
+├── harnetics.db   # SQLite 图谱数据库
+└── chroma/        # ChromaDB 向量索引
+```
+
+## 测试
 ```
 
 这次我实际跑通了下面这条链路：

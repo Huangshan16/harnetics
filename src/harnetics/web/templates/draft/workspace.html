@@ -1,0 +1,172 @@
+<!--
+[INPUT]: 依赖 base.html 继承、graph.store.get_documents 文档列表
+[OUTPUT]: 渲染草稿生成三步向导：选文档 → 输入主题 → 确认生成
+[POS]: web/templates/draft 的工作台入口，HTMX 驱动逐步生成进度
+[PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
+-->
+{% extends "base.html" %}
+
+{% block title %}草稿工作台 — Harnetics{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold">草稿生成工作台</h1>
+    <p class="text-base-content/60 mt-1">AI 辅助生成符合规范的航天文档草稿</p>
+  </div>
+
+  <!-- 三步向导 -->
+  <ul class="steps steps-horizontal w-full">
+    <li class="step step-primary" id="step-1-indicator">选择参考文档</li>
+    <li class="step" id="step-2-indicator">填写主题</li>
+    <li class="step" id="step-3-indicator">生成 &amp; 评估</li>
+  </ul>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+
+      <!-- STEP 1: 选择参考文档 -->
+      <div id="step-1">
+        <h2 class="text-lg font-semibold mb-4">选择参考文档（可多选）</h2>
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>选择</th>
+                <th>文档 ID</th>
+                <th>标题</th>
+                <th>类型</th>
+                <th>部门</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for doc in documents %}
+              <tr>
+                <td><input type="checkbox" name="doc_ids" value="{{ doc.doc_id }}" class="checkbox checkbox-sm doc-checkbox" /></td>
+                <td class="font-mono text-xs">{{ doc.doc_id }}</td>
+                <td>{{ doc.title }}</td>
+                <td><span class="badge badge-ghost badge-sm">{{ doc.doc_type }}</span></td>
+                <td class="text-base-content/60 text-xs">{{ doc.department }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="5" class="text-center text-base-content/40">暂无文档，请先上传</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex justify-end">
+          <button class="btn btn-primary" onclick="goStep2()">下一步 →</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: 填写主题 -->
+      <div id="step-2" class="hidden">
+        <h2 class="text-lg font-semibold mb-4">填写草稿主题</h2>
+        <div class="form-control mb-4">
+          <label class="label"><span class="label-text">草稿主题 / 需求描述</span></label>
+          <textarea id="subject" rows="4" class="textarea textarea-bordered"
+                    placeholder="例：编写推进分系统与结构接口控制文档（ICD），需要覆盖推力接口参数和安装接口规格…"></textarea>
+        </div>
+        <div class="form-control mb-4">
+          <label class="label"><span class="label-text">模板文档（可选）</span></label>
+          <select id="template-id" class="select select-bordered">
+            <option value="">— 不使用模板 —</option>
+            {% for doc in documents %}
+            {% if doc.doc_type and '模板' in doc.doc_type %}
+            <option value="{{ doc.doc_id }}">{{ doc.doc_id }} — {{ doc.title }}</option>
+            {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex gap-2 justify-between mt-4">
+          <button class="btn btn-ghost" onclick="goStep1()">← 返回</button>
+          <button class="btn btn-primary" onclick="goStep3()">确认生成 →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: 生成进度 + 结果 -->
+      <div id="step-3" class="hidden">
+        <div id="gen-loading" class="flex flex-col items-center gap-4 py-8">
+          <span class="loading loading-spinner loading-lg text-primary"></span>
+          <p class="text-base-content/60">AI 正在生成草稿，请稍候…</p>
+        </div>
+        <div id="gen-result" class="hidden space-y-4">
+          <div class="alert alert-success">
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>草稿生成成功！</span>
+          </div>
+          <div id="draft-id-display" class="font-mono text-sm text-base-content/70"></div>
+          <div class="flex gap-2">
+            <a id="view-draft-btn" href="#" class="btn btn-primary">查看草稿</a>
+            <button class="btn btn-ghost" onclick="goStep1()">生成新草稿</button>
+          </div>
+        </div>
+        <div id="gen-error" class="hidden">
+          <div class="alert alert-error">
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span id="gen-error-msg">生成失败</span>
+          </div>
+          <button class="btn btn-ghost mt-2" onclick="goStep2()">← 返回修改</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- 步骤切换 -------------------------------------------------------
+function showStep(n) {
+  ['step-1','step-2','step-3'].forEach((id,i) => {
+    document.getElementById(id).classList.toggle('hidden', i !== n-1);
+    const ind = document.getElementById(`step-${i+1}-indicator`);
+    ind.classList.toggle('step-primary', i < n);
+  });
+}
+function goStep1() { showStep(1); }
+function goStep2() {
+  const checked = document.querySelectorAll('.doc-checkbox:checked');
+  if (!checked.length) { alert('请至少选择一个参考文档'); return; }
+  showStep(2);
+}
+function goStep3() {
+  const subject = document.getElementById('subject').value.trim();
+  if (!subject) { alert('请填写草稿主题'); return; }
+  showStep(3);
+  generateDraft();
+}
+
+// ---- 生成草稿 --------------------------------------------------------
+async function generateDraft() {
+  const docIds = [...document.querySelectorAll('.doc-checkbox:checked')].map(e => e.value);
+  const subject = document.getElementById('subject').value.trim();
+  const templateId = document.getElementById('template-id').value;
+
+  try {
+    const res = await fetch('/api/draft/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        subject,
+        related_doc_ids: docIds,
+        template_id: templateId,
+      }),
+    });
+    const data = await res.json();
+    document.getElementById('gen-loading').classList.add('hidden');
+    if (res.ok) {
+      document.getElementById('gen-result').classList.remove('hidden');
+      document.getElementById('draft-id-display').textContent = '草稿 ID：' + data.draft_id;
+      document.getElementById('view-draft-btn').href = '/drafts/' + data.draft_id;
+    } else {
+      document.getElementById('gen-error').classList.remove('hidden');
+      document.getElementById('gen-error-msg').textContent = data.detail || '生成失败';
+    }
+  } catch (err) {
+    document.getElementById('gen-loading').classList.add('hidden');
+    document.getElementById('gen-error').classList.remove('hidden');
+    document.getElementById('gen-error-msg').textContent = '网络错误：' + err.message;
+  }
+}
+</script>
+{% endblock %}

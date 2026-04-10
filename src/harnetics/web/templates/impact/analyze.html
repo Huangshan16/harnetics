@@ -1,0 +1,135 @@
+<!--
+[INPUT]: 依赖 base.html 继承、graph.store.get_documents 文档列表（用于选择器）
+[OUTPUT]: 渲染影响分析触发表单：选择触发文档、填写版本号
+[POS]: web/templates/impact 的分析入口，US3 变更影响分析的起点
+[PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
+-->
+{% extends "base.html" %}
+
+{% block title %}变更影响分析 — Harnetics{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold">变更影响分析</h1>
+    <p class="text-base-content/60 mt-1">分析文档版本变更对下游依赖文档的影响范围</p>
+  </div>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body space-y-4">
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">触发文档</span></label>
+        <select id="doc-id-select" class="select select-bordered">
+          <option value="">— 请选择文档 —</option>
+          {% for doc in documents %}
+          <option value="{{ doc.doc_id }}">{{ doc.doc_id }} — {{ doc.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text">变更前版本</span></label>
+          <input id="old-version" type="text" class="input input-bordered" placeholder="例：v1.0" />
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text">变更后版本</span></label>
+          <input id="new-version" type="text" class="input input-bordered" placeholder="例：v2.0" />
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">变更章节 ID（可选，逗号分隔）</span>
+          <span class="label-text-alt text-base-content/50">不填则分析全量章节</span>
+        </label>
+        <input id="section-ids" type="text" class="input input-bordered"
+               placeholder="例：sec-1, sec-2, sec-3" />
+      </div>
+
+      <div class="flex justify-end mt-2">
+        <button class="btn btn-primary" onclick="runAnalysis()" id="analyze-btn">
+          <span id="analyze-spinner" class="loading loading-spinner loading-sm hidden"></span>
+          开始分析
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 结果将内联渲染在此 -->
+  <div id="impact-result"></div>
+</div>
+
+<script>
+async function runAnalysis() {
+  const docId = document.getElementById('doc-id-select').value;
+  if (!docId) { alert('请选择触发文档'); return; }
+
+  const oldV = document.getElementById('old-version').value.trim();
+  const newV = document.getElementById('new-version').value.trim();
+  const secInput = document.getElementById('section-ids').value.trim();
+  const changedIds = secInput ? secInput.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  const btn = document.getElementById('analyze-btn');
+  const spinner = document.getElementById('analyze-spinner');
+  btn.disabled = true;
+  spinner.classList.remove('hidden');
+
+  try {
+    const res = await fetch('/api/impact/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        doc_id: docId,
+        old_version: oldV,
+        new_version: newV,
+        changed_section_ids: changedIds,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || '分析失败');
+    renderResult(data);
+  } catch(err) {
+    document.getElementById('impact-result').innerHTML =
+      `<div class="alert alert-error"><span>${err.message}</span></div>`;
+  } finally {
+    btn.disabled = false;
+    spinner.classList.add('hidden');
+  }
+}
+
+function severityBadge(s) {
+  const map = {critical:'badge-error', major:'badge-warning', minor:'badge-info', info:'badge-ghost'};
+  return `<span class="badge ${map[s]||'badge-ghost'} badge-sm">${s}</span>`;
+}
+
+function renderResult(data) {
+  const rows = (data.impacted_docs || []).map(d =>
+    `<tr>
+      <td class="font-mono text-xs"><a href="/documents/${d.doc_id}" class="link">${d.doc_id}</a></td>
+      <td>${d.title}</td>
+      <td class="text-xs text-base-content/60">${d.relation}</td>
+      <td>${severityBadge(d.severity)}</td>
+      <td class="text-xs">${(d.affected_sections||[]).slice(0,3).join(', ')}</td>
+    </tr>`
+  ).join('');
+
+  document.getElementById('impact-result').innerHTML = `
+    <div class="card bg-base-100 shadow">
+      <div class="card-body space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="card-title">分析结果</h2>
+          <a href="/api/impact/${data.report_id}/export" class="btn btn-ghost btn-sm" download>导出报告</a>
+        </div>
+        <div class="bg-base-200 rounded p-3 text-sm whitespace-pre-wrap">${data.summary}</div>
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead><tr><th>文档 ID</th><th>标题</th><th>关系</th><th>危险等级</th><th>影响章节</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="5" class="text-center text-base-content/40">无下游影响</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+}
+</script>
+{% endblock %}

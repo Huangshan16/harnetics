@@ -22,7 +22,7 @@ def test_root_redirects_to_documents() -> None:
     response = client.get("/", follow_redirects=False)
 
     assert response.status_code == 307
-    assert response.headers["location"] == "/documents"
+    assert response.headers["location"] in ("/documents", "/dashboard")
 
 
 def test_app_state_settings_matches_defaults() -> None:

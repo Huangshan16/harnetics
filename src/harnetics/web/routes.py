@@ -1,6 +1,6 @@
-# [INPUT]: 依赖 FastAPI 请求对象、Jinja2 模板、Repository、ImportService 与 draft services
-# [OUTPUT]: 对外提供根路径跳转、文档导入、列表、详情与草稿工作流路由
-# [POS]: harnetics/web 的 HTTP 入口，负责首页导航、catalog 页面与草稿生成/编辑/导出闭环
+# [INPUT]: 依赖 FastAPI、Jinja2 模板、graph.store CRUD、旧版 Repository/ImportService/DraftService
+# [OUTPUT]: 对外提供根路径跳转、文档列表/详情/上传页面与草稿工作流路由，以及图谱/影响/仪表盘页面
+# [POS]: harnetics/web 的 HTTP 入口，负责文档库浏览（graph store 驱动）与草稿生成/编辑/导出闭环
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
 from pathlib import Path
@@ -19,6 +19,8 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 import yaml
 
+from harnetics.graph import store as graph_store
+
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
@@ -31,7 +33,7 @@ def _normalize_filter(value: str | None) -> str | None:
 
 @router.get("/")
 def root():
-    return RedirectResponse("/documents")
+    return RedirectResponse("/dashboard")
 
 
 @router.get("/documents", response_class=HTMLResponse)
@@ -40,35 +42,66 @@ def list_documents(
     department: str | None = None,
     doc_type: str | None = None,
     system_level: str | None = None,
+    q: str | None = None,
     query: str | None = None,
 ):
     department = _normalize_filter(department)
     doc_type = _normalize_filter(doc_type)
     system_level = _normalize_filter(system_level)
-    query = _normalize_filter(query)
-    repository = request.app.state.repository
-    documents = repository.list_documents(
-        department=department,
-        doc_type=doc_type,
-        system_level=system_level,
-        query=query,
+    # 兼容旧版 query 参数名
+    search = _normalize_filter(q) or _normalize_filter(query)
+
+    # ---- 旧版仓储路径（旧 create_app 填充了 repository） ----
+    if hasattr(request.app.state, "repository"):
+        documents = request.app.state.repository.list_documents(
+            department=department, doc_type=doc_type,
+            system_level=system_level, query=search,
+        )
+        return templates.TemplateResponse(
+            request, "documents/list.html",
+            {
+                "documents": documents,
+                "departments": [], "doc_types": [], "system_levels": [],
+                "filters": {
+                    "department": department or "", "doc_type": doc_type or "",
+                    "system_level": system_level or "", "q": search or "",
+                },
+            },
+        )
+
+    # ---- 新版 graph store 路径 ----
+    documents = graph_store.get_documents(
+        department=department, doc_type=doc_type,
+        system_level=system_level, q=search,
     )
+    all_docs = graph_store.get_documents()
+    departments = sorted({d.department for d in all_docs if d.department})
+    doc_types = sorted({d.doc_type for d in all_docs if d.doc_type})
+    system_levels = sorted({d.system_level for d in all_docs if d.system_level})
     return templates.TemplateResponse(
         request,
-        "documents.html",
+        "documents/list.html",
         {
-            "request": request,
             "documents": documents,
+            "departments": departments,
+            "doc_types": doc_types,
+            "system_levels": system_levels,
             "filters": {
                 "department": department or "",
                 "doc_type": doc_type or "",
                 "system_level": system_level or "",
-                "query": query or "",
+                "q": search or "",
             },
         },
     )
 
 
+@router.get("/documents/upload", response_class=HTMLResponse)
+def upload_page(request: Request):
+    return templates.TemplateResponse(request, "documents/upload.html", {})
+
+
+# ---- 旧版导入端点（被 test_catalog_routes 依赖，保留兼容） ----
 @router.post("/documents/import")
 async def import_document(request: Request, file: UploadFile = File(...)):
     filename = file.filename or ""
@@ -76,18 +109,14 @@ async def import_document(request: Request, file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="missing filename")
     if "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="invalid filename")
-
     safe_name = Path(filename).name
     if safe_name != filename or safe_name in {"", ".", ".."}:
         raise HTTPException(status_code=400, detail="invalid filename")
-
     target_path = Path(request.app.state.settings.raw_upload_dir) / safe_name
     target_path.parent.mkdir(parents=True, exist_ok=True)
     if target_path.exists():
         raise HTTPException(status_code=400, detail="file already exists")
-
     target_path.write_bytes(await file.read())
-
     try:
         request.app.state.import_service.import_file(target_path)
     except yaml.YAMLError as exc:
@@ -102,22 +131,36 @@ async def import_document(request: Request, file: UploadFile = File(...)):
         except FileNotFoundError:
             pass
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     return {"status": "imported"}
 
 
-@router.get("/documents/{document_id}", response_class=HTMLResponse)
-def document_detail(request: Request, document_id: int):
-    try:
-        detail = request.app.state.repository.get_document_detail(document_id)
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail="document not found") from exc
+@router.get("/documents/{doc_id}", response_class=HTMLResponse)
+def graph_document_detail(request: Request, doc_id: str):
+    # 旧版 integer ID 使用旧仓储
+    if doc_id.isdigit() and hasattr(request.app.state, "repository"):
+        try:
+            detail = request.app.state.repository.get_document_detail(int(doc_id))
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="document not found") from exc
+        return templates.TemplateResponse(
+            request, "document_detail.html", {"request": request, "detail": detail},
+        )
+    # 新版 string doc_id 使用 graph store
+    document = graph_store.get_document(doc_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="document not found")
+    sections = graph_store.get_sections(doc_id)
+    upstream, downstream = graph_store.get_edges_for_doc(doc_id)
+    icd_params = graph_store.get_icd_parameters(doc_id)
     return templates.TemplateResponse(
         request,
-        "document_detail.html",
+        "documents/detail.html",
         {
-            "request": request,
-            "detail": detail,
+            "document": document,
+            "sections": sections,
+            "upstream": upstream,
+            "downstream": downstream,
+            "icd_params": icd_params,
         },
     )
 
@@ -235,4 +278,70 @@ def export_draft(request: Request, draft_id: int):
         draft.content_markdown,
         media_type="text/markdown; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="draft-{draft_id}.md"'},
+    )
+
+
+# ================================================================
+# 新版页面路由（US2/US3/US4/US5）
+# ================================================================
+
+@router.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    return templates.TemplateResponse(request, "index.html", {})
+
+
+@router.get("/drafts/workspace", response_class=HTMLResponse)
+def draft_workspace(request: Request):
+    docs = graph_store.get_documents()
+    return templates.TemplateResponse(request, "draft/workspace.html", {"documents": docs})
+
+
+@router.get("/drafts/{draft_id_str}", response_class=HTMLResponse)
+def draft_result_page(request: Request, draft_id_str: str):
+    """草稿详情页：兼容新版字符串 draft_id 与旧版数字 id。"""
+    # 旧版整数 id 走旧路径
+    if draft_id_str.isdigit() and hasattr(request.app.state, "repository"):
+        try:
+            draft = request.app.state.repository.get_draft_detail(int(draft_id_str))
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="draft not found") from exc
+        return templates.TemplateResponse(
+            request, "draft_show.html",
+            {"request": request, "draft": draft, "issues": draft.issues, "citations": draft.citations},
+        )
+    # 新版字符串 DRAFT-* id
+    import json as _json
+    from harnetics.graph import store as _store
+    with _store.get_connection() as conn:
+        row = conn.execute("SELECT * FROM drafts WHERE draft_id = ?", (draft_id_str,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="draft not found")
+
+    draft_obj = {
+        "draft_id": row["draft_id"],
+        "status": row["status"],
+        "content_md": row["content_md"],
+        "citations": _json.loads(row["citations_json"] or "[]"),
+        "conflicts": _json.loads(row["conflicts_json"] or "[]"),
+        "eval_results": _json.loads(row["eval_results_json"] or "[]"),
+        "generated_by": row["generated_by"],
+        "created_at": row["created_at"],
+    }
+    return templates.TemplateResponse(request, "draft/result.html", {"draft": draft_obj})
+
+
+@router.get("/impact", response_class=HTMLResponse)
+def impact_page(request: Request, doc_id: str | None = None):
+    docs = graph_store.get_documents()
+    return templates.TemplateResponse(request, "impact/analyze.html", {"documents": docs, "selected_doc_id": doc_id or ""})
+
+
+@router.get("/graph", response_class=HTMLResponse)
+def graph_page(request: Request):
+    all_docs = graph_store.get_documents()
+    departments = sorted({d.department for d in all_docs if d.department})
+    system_levels = sorted({d.system_level for d in all_docs if d.system_level})
+    return templates.TemplateResponse(
+        request, "graph/view.html",
+        {"departments": departments, "system_levels": system_levels},
     )

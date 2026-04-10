@@ -1,0 +1,80 @@
+<!--
+[INPUT]: 依赖 base.html
+[OUTPUT]: 提供文档上传表单页面
+[POS]: web/templates/documents 的上传页，POST 到 /api/documents/upload
+[PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
+-->
+{% extends "base.html" %}
+{% block title %}上传文档 | Harnetics{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-3xl font-bold mb-6">上传文档</h1>
+
+  <form action="/api/documents/upload" method="post" enctype="multipart/form-data"
+        class="bg-base-100 shadow-sm rounded-box p-6 space-y-6">
+
+    <!-- ---- 文件拖放区 ---- -->
+    <div class="form-control">
+      <label class="label"><span class="label-text font-semibold">选择文件 (.md / .yaml / .yml)</span></label>
+      <div class="border-2 border-dashed border-base-300 rounded-lg p-8 text-center hover:border-primary transition-colors"
+           ondragover="event.preventDefault(); this.classList.add('border-primary')"
+           ondragleave="this.classList.remove('border-primary')"
+           ondrop="event.preventDefault(); this.classList.remove('border-primary'); document.getElementById('file-input').files = event.dataTransfer.files; document.getElementById('file-name').textContent = event.dataTransfer.files[0].name">
+        <input id="file-input" type="file" name="file" accept=".md,.yaml,.yml" required
+               class="file-input file-input-bordered w-full max-w-xs"
+               onchange="document.getElementById('file-name').textContent = this.files[0]?.name || ''" />
+        <p id="file-name" class="mt-2 text-sm text-base-content/60"></p>
+      </div>
+    </div>
+
+    <!-- ---- 元数据字段 ---- -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="form-control">
+        <label class="label"><span class="label-text">文档编号</span></label>
+        <input type="text" name="doc_id" placeholder="如 DOC-SYS-001（留空自动检测）" class="input input-bordered w-full" />
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text">标题</span></label>
+        <input type="text" name="title" placeholder="留空自动从文件提取" class="input input-bordered w-full" />
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text">文档类型</span></label>
+        <select name="doc_type" class="select select-bordered w-full">
+          <option value="">自动检测</option>
+          <option value="Requirement">需求 (Requirement)</option>
+          <option value="Design">设计 (Design)</option>
+          <option value="ICD">接口控制 (ICD)</option>
+          <option value="Test">测试 (Test)</option>
+          <option value="Quality">质量 (Quality)</option>
+          <option value="Template">模板 (Template)</option>
+        </select>
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text">部门</span></label>
+        <input type="text" name="department" placeholder="如：系统工程部" class="input input-bordered w-full" />
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text">系统层级</span></label>
+        <select name="system_level" class="select select-bordered w-full">
+          <option value="">自动检测</option>
+          <option value="System">系统级 (System)</option>
+          <option value="Subsystem">分系统级 (Subsystem)</option>
+          <option value="Component">组件级 (Component)</option>
+        </select>
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text">版本</span></label>
+        <input type="text" name="version" placeholder="如 v1.0" class="input input-bordered w-full" />
+      </div>
+    </div>
+
+    <div class="form-control mt-4">
+      <button type="submit" class="btn btn-primary w-full">上传并入库</button>
+    </div>
+  </form>
+
+  <div class="mt-4 text-center">
+    <a href="/documents" class="link link-primary">← 返回文档列表</a>
+  </div>
+</div>
+{% endblock %}
