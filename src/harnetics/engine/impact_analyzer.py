@@ -79,6 +79,16 @@ class ImpactAnalyzer:
             f"变更章节：{len(changed_sections)} 个，影响下游文档：{len(impacted_docs)} 个",
         ]
         critical = [d for d in impacted_docs if d.severity == "critical"]
+        major = [d for d in impacted_docs if d.severity == "major"]
+        minor = [d for d in impacted_docs if d.severity == "minor"]
+        if impacted_docs:
+            summary_lines.append(
+                f"影响等级分布：critical {len(critical)} / major {len(major)} / minor {len(minor)}"
+            )
+        else:
+            summary_lines.append(
+                "未发现依赖该文档的下游文档；当前图谱中没有任何文档把它作为引用目标。"
+            )
         if critical:
             summary_lines.append(
                 "高危影响：" + "、".join(d.doc_id for d in critical)
@@ -106,17 +116,17 @@ class ImpactAnalyzer:
     def _bfs_downstream(
         self, start_doc_id: str, changed_section_ids: set[str]
     ) -> list[ImpactedDoc]:
-        """BFS 遍历 start_doc_id 的所有下游文档（最大深度 6）。"""
+        """BFS 遍历所有依赖 start_doc_id 的下游文档（最大深度 6）。"""
         visited: dict[str, ImpactedDoc] = {}
         # queue items: (doc_id, depth, relation)
         queue: deque[tuple[str, int, str]] = deque()
 
-        # 入队首层下游
-        _, downstream = store.get_edges_for_doc(start_doc_id)
-        for edge in downstream:
-            if edge.target_doc_id == start_doc_id:
+        # 入队首层下游：谁引用了 start_doc_id，谁就会被它影响。
+        upstream, _ = store.get_edges_for_doc(start_doc_id)
+        for edge in upstream:
+            if edge.source_doc_id == start_doc_id:
                 continue
-            queue.append((edge.target_doc_id, 1, edge.relation or "references"))
+            queue.append((edge.source_doc_id, 1, edge.relation or "references"))
 
         while queue:
             current_doc_id, depth, relation = queue.popleft()
@@ -151,11 +161,11 @@ class ImpactAnalyzer:
 
             # 继续向下游传播
             if depth < 6:
-                _, next_downstream = store.get_edges_for_doc(current_doc_id)
-                for edge in next_downstream:
-                    if edge.target_doc_id not in visited:
+                next_upstream, _ = store.get_edges_for_doc(current_doc_id)
+                for edge in next_upstream:
+                    if edge.source_doc_id not in visited:
                         queue.append(
-                            (edge.target_doc_id, depth + 1, edge.relation or "references")
+                            (edge.source_doc_id, depth + 1, edge.relation or "references")
                         )
 
         # 按危险等级降序排列
@@ -176,8 +186,7 @@ class ImpactAnalyzer:
                 if uid in (s.content or ""):
                     affected.append(s.section_id)
                     break
-        # 若无精确匹配，返回所有章节 ID（保守策略）
-        return affected if affected else [s.section_id for s in sections[:3]]
+        return affected
 
     def _persist(self, report: ImpactReport) -> None:
         """将影响分析报告序列化后写入 impact_reports 表。"""

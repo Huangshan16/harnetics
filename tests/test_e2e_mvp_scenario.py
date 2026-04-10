@@ -41,6 +41,15 @@ def client(e2e_app):
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures"
 
 
+def _upload_inline_markdown(client: TestClient, filename: str, content: str) -> str:
+    res = client.post(
+        "/api/documents/upload",
+        files={"file": (filename, content.encode("utf-8"), "text/markdown")},
+    )
+    assert res.status_code == 200, res.text
+    return res.json()["doc_id"]
+
+
 # ================================================================
 # T1: 健康检查
 # ================================================================
@@ -226,6 +235,53 @@ def test_impact_analysis(client):
     assert "report_id" in data
 
 
+def test_impact_analysis_finds_documents_that_reference_trigger_doc(client):
+    source_doc_id = _upload_inline_markdown(
+        client,
+        "DOC-SRC-001.md",
+        """---
+doc_id: DOC-SRC-001
+title: 上游需求文档
+doc_type: Requirement
+department: 系统工程部
+system_level: System
+engineering_phase: Requirement
+version: v1.0
+status: Approved
+---
+# 1. 文档说明
+这里定义系统级需求。
+""",
+    )
+    dependent_doc_id = _upload_inline_markdown(
+        client,
+        "DOC-DEP-001.md",
+        """---
+doc_id: DOC-DEP-001
+title: 依赖该需求的设计文档
+doc_type: Design
+department: 动力系统部
+system_level: Subsystem
+engineering_phase: Design
+version: v1.0
+status: Approved
+---
+# 1. 设计约束
+本文档基于 DOC-SRC-001 中的约束展开详细设计。
+""",
+    )
+
+    impact_res = client.post(
+        "/api/impact/analyze",
+        json={"doc_id": source_doc_id, "old_version": "v1.0", "new_version": "v1.1"},
+    )
+
+    assert impact_res.status_code == 200, impact_res.text
+    data = impact_res.json()
+    impacted_ids = [doc["doc_id"] for doc in data["impacted_docs"]]
+    assert dependent_doc_id in impacted_ids
+
+
 # ================================================================
 # T7: 图谱 API（US4）
 # ================================================================
@@ -255,3 +311,12 @@ def test_status_endpoint(client):
     assert "documents" in data
     assert "drafts" in data
     assert "stale_references" in data
+
+
+def test_dashboard_stats_alias_endpoint(client):
+    status_res = client.get("/api/status")
+    stats_res = client.get("/api/dashboard/stats")
+
+    assert status_res.status_code == 200
+    assert stats_res.status_code == 200
+    assert stats_res.json() == status_res.json()

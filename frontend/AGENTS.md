@@ -27,7 +27,7 @@ src/components/Footer.tsx: 页脚
 src/components/Hero.tsx: 首页英雄区 (未使用)
 src/components/ui/*.tsx: 13 个 shadcn/ui 组件 (alert/badge/button/card/input/label/progress/scroll-area/select/separator/table/tabs/textarea)
 
-src/pages/Dashboard.tsx: 仪表盘 — 调用 /api/status
+src/pages/Dashboard.tsx: 仪表盘 — 调用 /api/dashboard/stats
 src/pages/Documents.tsx: 文档库列表 — 调用 /api/documents
 src/pages/DocumentDetail.tsx: 文档详情 — 调用 /api/documents/:id
 src/pages/DraftNew.tsx: 草稿创建工作台 — 调用 /api/draft/generate

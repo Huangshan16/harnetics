@@ -148,5 +148,5 @@ export function fetchGraphEdges(): Promise<DocumentEdge[]> {
 // ================================================================
 
 export function fetchDashboardStats(): Promise<DashboardStats> {
-  return request<DashboardStats>('/api/status')
+  return request<DashboardStats>('/api/dashboard/stats')
 }

@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { severityKey } from '@/lib/utils'
 
 export default function Impact() {
   const navigate = useNavigate()
@@ -82,9 +83,9 @@ export default function Impact() {
           <p className="text-sm text-muted-foreground">暂无历史报告</p>
         ) : (
           reports.map((rpt) => {
-            const criticalCount = rpt.impacted_docs.filter((d) => d.severity === 'Critical').length
-            const majorCount = rpt.impacted_docs.filter((d) => d.severity === 'Major').length
-            const minorCount = rpt.impacted_docs.filter((d) => d.severity === 'Minor').length
+            const criticalCount = rpt.impacted_docs.filter((d) => severityKey(d.severity) === 'critical').length
+            const majorCount = rpt.impacted_docs.filter((d) => severityKey(d.severity) === 'major').length
+            const minorCount = rpt.impacted_docs.filter((d) => severityKey(d.severity) === 'minor').length
             return (
               <Card key={rpt.report_id} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate(`/impact/${rpt.report_id}`)}>
                 <CardContent className="py-4 px-5">

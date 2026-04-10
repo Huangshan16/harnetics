@@ -125,7 +125,7 @@ export interface ImpactedDoc {
   title: string
   relation: string
   affected_sections: string[]
-  severity: string
+  severity: 'critical' | 'major' | 'minor'
 }
 
 // ================================================================

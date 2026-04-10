@@ -2,7 +2,7 @@
 > L2 | 父级: /frontend/src/AGENTS.md
 
 成员清单
-Dashboard.tsx: 仪表盘概览页，消费 /api/status。
+Dashboard.tsx: 仪表盘概览页，消费 /api/dashboard/stats。
 Documents.tsx: 文档列表与筛选页。
 DocumentDetail.tsx: 文档详情页，展示元数据/章节/关系。
 DraftNew.tsx: 草稿创建工作台。

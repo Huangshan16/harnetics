@@ -14,11 +14,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { severityKey, severityLabel } from '@/lib/utils'
 
 const impactBadge: Record<string, 'destructive' | 'warning' | 'secondary'> = {
-  Critical: 'destructive',
-  Major: 'warning',
-  Minor: 'secondary',
+  critical: 'destructive',
+  major: 'warning',
+  minor: 'secondary',
 }
 
 export default function ImpactReportPage() {
@@ -46,9 +47,9 @@ export default function ImpactReportPage() {
     )
   }
 
-  const criticalCount = rpt.impacted_docs.filter((d) => d.severity === 'Critical').length
-  const majorCount = rpt.impacted_docs.filter((d) => d.severity === 'Major').length
-  const minorCount = rpt.impacted_docs.filter((d) => d.severity === 'Minor').length
+  const criticalCount = rpt.impacted_docs.filter((d) => severityKey(d.severity) === 'critical').length
+  const majorCount = rpt.impacted_docs.filter((d) => severityKey(d.severity) === 'major').length
+  const minorCount = rpt.impacted_docs.filter((d) => severityKey(d.severity) === 'minor').length
 
   return (
     <div className="container mx-auto max-w-screen-xl px-4 py-6 space-y-6">
@@ -92,6 +93,13 @@ export default function ImpactReportPage() {
       </div>
 
       <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-base">分析摘要</CardTitle></CardHeader>
+        <CardContent>
+          <pre className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{rpt.summary}</pre>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">受影响文档清单</CardTitle></CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -108,11 +116,15 @@ export default function ImpactReportPage() {
                 <TableRow key={i} className="hover:bg-muted/30">
                   <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{d.doc_id}</code></TableCell>
                   <TableCell><span className="font-medium text-sm">{d.title}</span></TableCell>
-                  <TableCell><Badge variant={impactBadge[d.severity] ?? 'secondary'}>{d.severity}</Badge></TableCell>
+                  <TableCell><Badge variant={impactBadge[severityKey(d.severity)] ?? 'secondary'}>{severityLabel(d.severity)}</Badge></TableCell>
                   <TableCell className="hidden lg:table-cell">
-                    <div className="flex flex-wrap gap-1">
-                      {d.affected_sections.map((s, j) => <code key={j} className="text-xs bg-muted px-1 rounded">{s}</code>)}
-                    </div>
+                    {d.affected_sections.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">未精确定位章节，建议人工复核</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {d.affected_sections.map((s, j) => <code key={j} className="text-xs bg-muted px-1 rounded">{s}</code>)}
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -123,21 +135,34 @@ export default function ImpactReportPage() {
 
       <div className="space-y-3">
         <h2 className="text-base font-semibold">影响详情</h2>
+        {rpt.impacted_docs.length === 0 && (
+          <Card>
+            <CardContent className="py-8 text-sm text-muted-foreground">
+              当前图谱中没有发现依赖 <code className="bg-muted px-1 py-0.5 rounded text-xs">{rpt.trigger_doc_id}</code> 的下游文档。通常这意味着：
+              1. 这份文档尚未被其他文档引用。
+              2. 依赖关系还没有被导入到图谱。
+            </CardContent>
+          </Card>
+        )}
         {rpt.impacted_docs.map((d, i) => (
-          <Card key={i} className={d.severity === 'Critical' ? 'border-destructive/40' : d.severity === 'Major' ? 'border-amber-400/40' : ''}>
+          <Card key={i} className={severityKey(d.severity) === 'critical' ? 'border-destructive/40' : severityKey(d.severity) === 'major' ? 'border-amber-400/40' : ''}>
             <CardContent className="py-4 px-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <code className="font-mono text-sm font-bold text-primary">{d.doc_id}</code>
-                    <Badge variant={impactBadge[d.severity] ?? 'secondary'}>{d.severity}</Badge>
+                    <Badge variant={impactBadge[severityKey(d.severity)] ?? 'secondary'}>{severityLabel(d.severity)}</Badge>
                   </div>
                   <p className="text-sm font-medium">{d.title}</p>
                   <p className="text-sm text-muted-foreground">{d.relation}</p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    <span className="text-xs text-muted-foreground">受影响章节：</span>
-                    {d.affected_sections.map((s, j) => <code key={j} className="text-xs bg-muted px-1 rounded">{s}</code>)}
-                  </div>
+                  {d.affected_sections.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">未精确定位章节，建议结合关系链人工复核。</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <span className="text-xs text-muted-foreground">受影响章节：</span>
+                      {d.affected_sections.map((s, j) => <code key={j} className="text-xs bg-muted px-1 rounded">{s}</code>)}
+                    </div>
+                  )}
                 </div>
                 <Button variant="ghost" size="sm" className="gap-1 shrink-0 text-primary" onClick={() => navigate('/draft')}>
                   生成对齐草稿<ChevronRight className="h-3.5 w-3.5" />
