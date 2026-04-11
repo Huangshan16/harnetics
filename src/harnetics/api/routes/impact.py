@@ -1,19 +1,20 @@
 """
-# [INPUT]: 依赖 engine.impact_analyzer.ImpactAnalyzer、graph.store (impact_reports 表)
+# [INPUT]: 依赖 engine.impact_analyzer.ImpactAnalyzer、llm.client.HarneticsLLM、graph.store (impact_reports 表)
 # [OUTPUT]: 对外提供 router: POST /api/impact/analyze、GET /api/impact、GET /api/impact/{id}、GET /api/impact/{id}/export
-# [POS]: api/routes 的影响分析域端点，US3 影响分析的 HTTP 入口
+# [POS]: api/routes 的影响分析域端点，US3 影响分析的 HTTP 入口，注入 embedding_store + llm
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 """
 from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from harnetics.engine.impact_analyzer import ImpactAnalyzer
 from harnetics.graph import store
+from harnetics.llm.client import HarneticsLLM
 
 router = APIRouter(prefix="/api/impact", tags=["impact"])
 
@@ -48,10 +49,22 @@ def list_impact_reports() -> list[dict]:
 
 
 @router.post("/analyze")
-def analyze_impact(req: ImpactAnalyzeRequest) -> dict:
-    """触发变更影响分析，返回完整 ImpactReport。"""
+def analyze_impact(req: ImpactAnalyzeRequest, request: Request) -> dict:
+    """触发变更影响分析，返回完整 ImpactReport。注入 embedding_store + llm 启用 AI 向量分析。"""
     try:
-        report = ImpactAnalyzer().analyze(
+        settings = request.app.state.settings
+        embedding_store = getattr(request.app.state, "embedding_store", None)
+
+        llm = None
+        if settings.llm_model:
+            llm = HarneticsLLM(
+                model=settings.llm_model,
+                api_base=settings.llm_base_url,
+                api_key=settings.llm_api_key,
+            )
+
+        analyzer = ImpactAnalyzer(embedding_store=embedding_store, llm=llm)
+        report = analyzer.analyze(
             doc_id=req.doc_id,
             old_version=req.old_version,
             new_version=req.new_version,
@@ -62,33 +75,7 @@ def analyze_impact(req: ImpactAnalyzeRequest) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    return {
-        "report_id": report.report_id,
-        "trigger_doc_id": report.trigger_doc_id,
-        "old_version": report.old_version,
-        "new_version": report.new_version,
-        "summary": report.summary,
-        "changed_sections": [
-            {
-                "section_id": s.section_id,
-                "heading": s.heading,
-                "change_type": s.change_type,
-                "summary": s.summary,
-            }
-            for s in report.changed_sections
-        ],
-        "impacted_docs": [
-            {
-                "doc_id": d.doc_id,
-                "title": d.title,
-                "relation": d.relation,
-                "affected_sections": d.affected_sections,
-                "severity": d.severity,
-            }
-            for d in report.impacted_docs
-        ],
-        "created_at": report.created_at,
-    }
+    return _serialize_report(report)
 
 
 @router.get("/{report_id}")
@@ -140,3 +127,42 @@ def export_impact_report(report_id: str) -> str:
             f"| {d.get('doc_id','')} | {d.get('title','')} | {d.get('relation','')} | {d.get('severity','')} |"
         )
     return "\n".join(lines)
+
+
+# ================================================================
+# 序列化
+# ================================================================
+
+def _serialize_report(report) -> dict:
+    return {
+        "report_id": report.report_id,
+        "trigger_doc_id": report.trigger_doc_id,
+        "old_version": report.old_version,
+        "new_version": report.new_version,
+        "summary": report.summary,
+        "analysis_mode": report.analysis_mode,
+        "changed_sections": [
+            {
+                "section_id": s.section_id,
+                "heading": s.heading,
+                "change_type": s.change_type,
+                "summary": s.summary,
+            }
+            for s in report.changed_sections
+        ],
+        "impacted_docs": [
+            {
+                "doc_id": d.doc_id,
+                "title": d.title,
+                "relation": d.relation,
+                "severity": d.severity,
+                "analysis_mode": d.analysis_mode,
+                "affected_sections": [
+                    {"section_id": a.section_id, "heading": a.heading, "reason": a.reason}
+                    for a in d.affected_sections
+                ],
+            }
+            for d in report.impacted_docs
+        ],
+        "created_at": report.created_at,
+    }

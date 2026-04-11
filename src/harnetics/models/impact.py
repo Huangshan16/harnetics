@@ -1,6 +1,6 @@
 # [INPUT]: 依赖 dataclasses
-# [OUTPUT]: 对外提供 ImpactReport, ImpactedDoc, SectionDiff
-# [POS]: models 包的变更影响子域，描述变更波及报告
+# [OUTPUT]: 对外提供 ImpactReport, ImpactedDoc, SectionDiff, AffectedSection
+# [POS]: models 包的变更影响子域，描述变更波及报告，支持 AI 分析模式
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
 from __future__ import annotations
@@ -17,12 +17,21 @@ class SectionDiff:
 
 
 @dataclass(slots=True)
+class AffectedSection:
+    """AI 分析产出的受影响章节，含影响理由。"""
+    section_id: str
+    heading: str = ""
+    reason: str = ""
+
+
+@dataclass(slots=True)
 class ImpactedDoc:
     doc_id: str
     title: str
     relation: str
-    affected_sections: list[str] = field(default_factory=list)
+    affected_sections: list[AffectedSection] = field(default_factory=list)
     severity: str = "info"
+    analysis_mode: str = "heuristic"
 
 
 @dataclass(slots=True)
@@ -35,3 +44,4 @@ class ImpactReport:
     impacted_docs: list[ImpactedDoc] = field(default_factory=list)
     summary: str = ""
     created_at: str = ""
+    analysis_mode: str = "heuristic"

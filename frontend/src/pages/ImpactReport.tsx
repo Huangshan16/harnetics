@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 @/lib/api 的 fetchImpactReport，依赖 @/types
+ * [INPUT]: 依赖 @/lib/api 的 fetchImpactReport，依赖 @/types (AffectedSection)
  * [OUTPUT]: 对外提供 ImpactReportPage 页面组件
- * [POS]: pages 的影响分析报告详情页，US3 报告汇总 + 表格 + 详情
+ * [POS]: pages 的影响分析报告详情页，US3 报告汇总 + 表格 + 详情 + 草稿预填导航
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
  */
 
@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Download, ArrowRight, ChevronRight } from 'lucide-react'
 import { fetchImpactReport } from '@/lib/api'
-import type { ImpactReport } from '@/types'
+import type { ImpactReport, AffectedSection } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,6 +20,25 @@ const impactBadge: Record<string, 'destructive' | 'warning' | 'secondary'> = {
   critical: 'destructive',
   major: 'warning',
   minor: 'secondary',
+}
+
+function SectionBadge({ section }: { section: AffectedSection | string }) {
+  if (typeof section === 'string') {
+    return <code className="text-xs bg-muted px-1 rounded">{section}</code>
+  }
+  const label = section.heading || section.section_id
+  return (
+    <code className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded cursor-help" title={section.reason || undefined}>
+      {label}
+    </code>
+  )
+}
+
+function buildDraftUrl(reportId: string, docIds: string[]): string {
+  const params = new URLSearchParams()
+  params.set('source_report_id', reportId)
+  for (const id of docIds) params.append('doc_ids', id)
+  return `/draft/new?${params}`
 }
 
 export default function ImpactReportPage() {
@@ -73,6 +92,7 @@ export default function ImpactReportPage() {
               <code className="bg-primary/10 text-primary px-1 rounded text-xs font-semibold">{rpt.new_version}</code>
             </span>
             <Badge variant="secondary">{rpt.created_at}</Badge>
+            {rpt.analysis_mode && <Badge variant="outline" className="text-xs">{rpt.analysis_mode === 'ai_vector' ? 'AI 向量分析' : '规则引擎'}</Badge>}
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
@@ -91,6 +111,14 @@ export default function ImpactReportPage() {
         <Card className="border-amber-400/40"><CardContent className="pt-4 pb-4 text-center"><p className="text-2xl font-bold text-amber-500">{majorCount}</p><p className="text-xs text-muted-foreground mt-1">Major</p></CardContent></Card>
         <Card><CardContent className="pt-4 pb-4 text-center"><p className="text-2xl font-bold text-muted-foreground">{minorCount}</p><p className="text-xs text-muted-foreground mt-1">Minor</p></CardContent></Card>
       </div>
+
+      {rpt.impacted_docs.length > 0 && (
+        <div className="flex justify-end">
+          <Button size="sm" className="gap-1.5" onClick={() => navigate(buildDraftUrl(rpt.report_id, rpt.impacted_docs.map(d => d.doc_id)))}>
+            一键生成对齐草稿<ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">分析摘要</CardTitle></CardHeader>
@@ -122,7 +150,7 @@ export default function ImpactReportPage() {
                       <span className="text-xs text-muted-foreground">未精确定位章节，建议人工复核</span>
                     ) : (
                       <div className="flex flex-wrap gap-1">
-                        {d.affected_sections.map((s, j) => <code key={j} className="text-xs bg-muted px-1 rounded">{s}</code>)}
+                        {d.affected_sections.map((s, j) => <SectionBadge key={j} section={s} />)}
                       </div>
                     )}
                   </TableCell>
@@ -158,13 +186,15 @@ export default function ImpactReportPage() {
                   {d.affected_sections.length === 0 ? (
                     <p className="text-xs text-muted-foreground">未精确定位章节，建议结合关系链人工复核。</p>
                   ) : (
-                    <div className="flex flex-wrap gap-1 mt-1">
+                    <div className="space-y-1 mt-1">
                       <span className="text-xs text-muted-foreground">受影响章节：</span>
-                      {d.affected_sections.map((s, j) => <code key={j} className="text-xs bg-muted px-1 rounded">{s}</code>)}
+                      <div className="flex flex-wrap gap-1">
+                        {d.affected_sections.map((s, j) => <SectionBadge key={j} section={s} />)}
+                      </div>
                     </div>
                   )}
                 </div>
-                <Button variant="ghost" size="sm" className="gap-1 shrink-0 text-primary" onClick={() => navigate('/draft')}>
+                <Button variant="ghost" size="sm" className="gap-1 shrink-0 text-primary" onClick={() => navigate(buildDraftUrl(rpt.report_id, [d.doc_id]))}>
                   生成对齐草稿<ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </div>

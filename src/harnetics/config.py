@@ -1,11 +1,13 @@
-# [INPUT]: 依赖 os、pathlib，用于定义旧仓储栈与新图谱栈的固定运行时路径
+# [INPUT]: 依赖 os、pathlib、dotenv，定义运行时路径与 LLM/Embedding 配置
 # [OUTPUT]: 提供 Settings 数据对象、默认路径常量与 get_settings() 工厂
-# [POS]: harnetics 的运行时配置中心，隔离 legacy repository DB 与 graph DB，统一定义上传与 LLM 参数
+# [POS]: harnetics 的运行时配置中心，统一定义 LLM、Embedding、存储路径参数，支持 .env 加载
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
 import os
 from dataclasses import dataclass
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 
 DEFAULT_REPOSITORY_DB_PATH = Path("var/harnetics.db")
@@ -37,13 +39,20 @@ class Settings:
 
     # ---- Embedding ----
     embedding_model: str = "paraphrase-multilingual-MiniLM-L12-v2"
+    embedding_api_key: str = ""
+    embedding_base_url: str = ""
+
+    # ---- LLM API Key ----
+    llm_api_key: str = ""
 
     # ---- Server ----
     server_port: int = DEFAULT_SERVER_PORT
 
 
 def get_settings() -> Settings:
-    """读取环境变量覆盖默认值。"""
+    """读取 .env 文件 + 环境变量覆盖默认值。"""
+    load_dotenv(override=False)
+
     database_path = os.environ.get("HARNETICS_DATABASE_PATH")
     raw_upload_dir = os.environ.get("HARNETICS_RAW_UPLOAD_DIR")
     export_dir = os.environ.get("HARNETICS_EXPORT_DIR")
@@ -51,6 +60,10 @@ def get_settings() -> Settings:
     chroma_dir = os.environ.get("HARNETICS_CHROMA_DIR")
     llm_model = os.environ.get("HARNETICS_LLM_MODEL")
     llm_url = os.environ.get("HARNETICS_LLM_BASE_URL")
+    llm_api_key = os.environ.get("HARNETICS_LLM_API_KEY", "")
+    embedding_model = os.environ.get("HARNETICS_EMBEDDING_MODEL")
+    embedding_api_key = os.environ.get("HARNETICS_EMBEDDING_API_KEY", "")
+    embedding_base_url = os.environ.get("HARNETICS_EMBEDDING_BASE_URL", "")
     server_port = os.environ.get("HARNETICS_SERVER_PORT")
     return Settings(
         database_path=Path(database_path) if database_path else DEFAULT_REPOSITORY_DB_PATH,
@@ -60,5 +73,9 @@ def get_settings() -> Settings:
         chromadb_path=Path(chroma_dir) if chroma_dir else DEFAULT_CHROMADB_PATH,
         llm_model=llm_model or DEFAULT_LLM_MODEL,
         llm_base_url=llm_url or DEFAULT_LLM_BASE_URL,
+        llm_api_key=llm_api_key,
+        embedding_model=embedding_model or "paraphrase-multilingual-MiniLM-L12-v2",
+        embedding_api_key=embedding_api_key,
+        embedding_base_url=embedding_base_url,
         server_port=int(server_port) if server_port else DEFAULT_SERVER_PORT,
     )

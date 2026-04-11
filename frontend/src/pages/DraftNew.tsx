@@ -1,14 +1,14 @@
 /**
- * [INPUT]: 依赖 @/lib/api 的 fetchDocuments/generateDraft，依赖 @/types
+ * [INPUT]: 依赖 @/lib/api 的 fetchDocuments/generateDraft/searchDocuments，依赖 @/types
  * [OUTPUT]: 对外提供 DraftNew 页面组件
- * [POS]: pages 的草稿创建页，US2 两步式草稿生成工作台
+ * [POS]: pages 的草稿创建页，US2 两步式草稿生成工作台，支持向量搜索 + 影响报告预填
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
  */
 
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Search, Check, ChevronRight, FileText, Sparkles } from 'lucide-react'
-import { fetchDocuments, generateDraft } from '@/lib/api'
+import { fetchDocuments, generateDraft, searchDocuments } from '@/lib/api'
 import type { Document } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,18 +20,36 @@ import { Separator } from '@/components/ui/separator'
 
 export default function DraftNew() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [step, setStep] = useState<1 | 2>(1)
   const [topic, setTopic] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [generating, setGenerating] = useState(false)
   const [candidates, setCandidates] = useState<Document[]>([])
   const [allDocs, setAllDocs] = useState<Document[]>([])
+  const [sourceReportId, setSourceReportId] = useState('')
 
+  // ---- 加载所有文档 + URL 预填逻辑 ----
   useEffect(() => {
     fetchDocuments({ per_page: 200 })
       .then((res) => setAllDocs(res.documents))
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const reportId = searchParams.get('source_report_id') || ''
+    const prefillDocIds = searchParams.getAll('doc_ids')
+    if (reportId) setSourceReportId(reportId)
+    if (prefillDocIds.length > 0 && allDocs.length > 0) {
+      const prefillSet = new Set(prefillDocIds)
+      const matched = allDocs.filter((d) => prefillSet.has(d.doc_id))
+      if (matched.length > 0) {
+        setCandidates(matched)
+        setSelected(new Set(matched.map((d) => d.doc_id)))
+        setStep(2)
+      }
+    }
+  }, [searchParams, allDocs])
 
   function toggleDoc(docId: string) {
     setSelected((prev) => {
@@ -42,8 +60,16 @@ export default function DraftNew() {
   }
 
   function handleSearch() {
-    setCandidates(allDocs)
-    setStep(2)
+    if (!topic.trim()) return
+    searchDocuments(topic.trim())
+      .then((res) => {
+        setCandidates(res.results.length > 0 ? res.results : allDocs)
+        setStep(2)
+      })
+      .catch(() => {
+        setCandidates(allDocs)
+        setStep(2)
+      })
   }
 
   function handleGenerate() {
@@ -51,6 +77,7 @@ export default function DraftNew() {
     generateDraft({
       subject: topic,
       related_doc_ids: Array.from(selected),
+      extra: sourceReportId ? { source_report_id: sourceReportId } : undefined,
     })
       .then((draft) => navigate(`/draft/${draft.draft_id}`))
       .catch(() => setGenerating(false))

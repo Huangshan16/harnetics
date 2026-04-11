@@ -8,6 +8,7 @@
 import type {
   DocumentListResponse,
   DocumentDetailResponse,
+  DocumentSearchResponse,
   DraftSummary,
   Draft,
   ImpactReport,
@@ -54,6 +55,11 @@ export function fetchDocuments(params: DocumentListParams = {}): Promise<Documen
 
 export function fetchDocument(docId: string): Promise<DocumentDetailResponse> {
   return request<DocumentDetailResponse>(`/api/documents/${encodeURIComponent(docId)}`)
+}
+
+export function searchDocuments(query: string, topK = 10): Promise<DocumentSearchResponse> {
+  const qs = new URLSearchParams({ q: query, top_k: String(topK) })
+  return request<DocumentSearchResponse>(`/api/documents/search?${qs}`)
 }
 
 // ================================================================

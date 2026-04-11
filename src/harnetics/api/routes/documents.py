@@ -1,5 +1,5 @@
-# [INPUT]: 依赖 FastAPI、graph.store CRUD、graph.indexer、models (DocumentNode/Section/ICDParameter)
-# [OUTPUT]: 对外提供 documents_router (文档上传/列表/详情/删除/章节) 与 ICD 参数路由
+# [INPUT]: 依赖 FastAPI、graph.store CRUD、graph.indexer、graph.embeddings.EmbeddingStore、models (DocumentNode/Section/ICDParameter)
+# [OUTPUT]: 对外提供 documents_router (文档上传/列表/详情/删除/章节/向量搜索) 与 ICD 参数路由
 # [POS]: api/routes 的文档域 REST 端点，被 api/app.py 注册
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
 from harnetics.graph import store
 from harnetics.graph.indexer import DocumentIndexer
@@ -94,6 +94,26 @@ def list_documents(
         "total": total, "page": page, "per_page": per_page,
         "documents": [_doc_dict(d) for d in page_docs],
     }
+
+
+@router.get("/documents/search")
+def search_documents(q: str, top_k: int = 10, request: Request = None):
+    """向量语义检索：按 query 检索相似文档，返回排序结果列表。"""
+    embedding_store = getattr(request.app.state, "embedding_store", None) if request else None
+    if embedding_store is None:
+        raise HTTPException(503, "embedding store not available")
+
+    hits = embedding_store.search_documents(query=q, top_k=top_k)
+    results = []
+    for hit in hits:
+        doc = store.get_document(hit["doc_id"])
+        if doc is None:
+            continue
+        results.append({
+            **_doc_dict(doc),
+            "relevance_score": hit.get("relevance_score", 0),
+        })
+    return {"results": results}
 
 
 @router.get("/documents/{doc_id}")

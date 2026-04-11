@@ -5,10 +5,10 @@
 Dashboard.tsx: 仪表盘概览页，消费 /api/dashboard/stats。
 Documents.tsx: 文档列表与筛选页。
 DocumentDetail.tsx: 文档详情页，展示元数据/章节/关系。
-DraftNew.tsx: 草稿创建工作台。
+DraftNew.tsx: 草稿创建工作台，支持向量搜索候选文档 + 影响报告预填（URL query params）。
 DraftShow.tsx: 草稿详情与评估页。
 Impact.tsx: 影响分析首页与报告列表。
-ImpactReport.tsx: 影响分析报告详情页。
+ImpactReport.tsx: 影响分析报告详情页，展示 AffectedSection（heading + reason tooltip），支持一键/单文档导航到草稿工作台。
 Graph.tsx: SVG 图谱可视化页。
 DesignSystem.tsx: 设计系统展示页。
 

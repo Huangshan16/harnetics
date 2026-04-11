@@ -102,12 +102,19 @@ export interface EvalResult {
 // 影响分析域
 // ================================================================
 
+export interface AffectedSection {
+  section_id: string
+  heading: string
+  reason: string
+}
+
 export interface ImpactReport {
   report_id: string
   trigger_doc_id: string
   old_version: string
   new_version: string
   summary: string
+  analysis_mode?: string
   changed_sections: ChangedSection[]
   impacted_docs: ImpactedDoc[]
   created_at: string
@@ -124,8 +131,9 @@ export interface ImpactedDoc {
   doc_id: string
   title: string
   relation: string
-  affected_sections: string[]
+  affected_sections: AffectedSection[]
   severity: 'critical' | 'major' | 'minor'
+  analysis_mode?: string
 }
 
 // ================================================================
@@ -183,4 +191,12 @@ export interface DocumentDetailResponse {
   upstream: DocumentEdge[]
   downstream: DocumentEdge[]
   icd_parameters: ICDParameter[]
+}
+
+export interface DocumentSearchResult extends Document {
+  relevance_score: number
+}
+
+export interface DocumentSearchResponse {
+  results: DocumentSearchResult[]
 }

@@ -24,9 +24,24 @@ from harnetics.api.routes.status import router as status_router
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    """应用启动时初始化图谱数据库。"""
+    """应用启动时初始化图谱数据库与向量索引。"""
     settings = get_settings()
     init_db(settings.graph_db_path)
+
+    # ---- 初始化 EmbeddingStore（可能失败，降级为 None） ----
+    emb_store = None
+    try:
+        from harnetics.graph.embeddings import EmbeddingStore
+        emb_store = EmbeddingStore(
+            persist_path=str(settings.chromadb_path),
+            model_name=settings.embedding_model,
+            api_key=settings.embedding_api_key,
+            base_url=settings.embedding_base_url,
+        )
+    except Exception:
+        pass
+    app.state.embedding_store = emb_store
+
     yield
 
 
