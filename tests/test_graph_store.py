@@ -143,3 +143,18 @@ def test_embedding_model_keeps_local_sentence_transformer_route() -> None:
 
     assert _normalize_embedding_model(model_name) == model_name
     assert _uses_remote_embeddings(model_name) is False
+
+
+def test_embedding_model_normalizes_bare_remote_name_for_openai_compatible_gateway() -> None:
+    model_name = "jina-embeddings-v5-text-small"
+
+    assert _normalize_embedding_model(
+        model_name,
+        api_key="sk-test",
+        base_url="https://aihubmix.com/v1",
+    ) == "openai/jina-embeddings-v5-text-small"
+    assert _uses_remote_embeddings(
+        model_name,
+        api_key="sk-test",
+        base_url="https://aihubmix.com/v1",
+    ) is True

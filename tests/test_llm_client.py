@@ -55,3 +55,14 @@ def test_cloud_availability_reports_provider_probe_failure() -> None:
 
     assert ok is False
     assert "401" in error
+
+
+def test_bare_remote_model_is_normalized_for_openai_compatible_gateway() -> None:
+    llm = HarneticsLLM(
+        model="claude-sonnet-4-6",
+        api_base="https://aihubmix.com/v1",
+        api_key="sk-test",
+    )
+
+    assert llm.model == "openai/claude-sonnet-4-6"
+    assert llm.api_base == "https://aihubmix.com/v1"

@@ -150,6 +150,8 @@ def _normalize_model(model: str, api_base: str | None) -> str:
         return normalized
     if _looks_like_ollama_base(api_base) or ":" in normalized:
         return f"ollama/{normalized}"
+    if _looks_like_openai_compatible_base(api_base):
+        return f"openai/{normalized}"
     return normalized
 
 
@@ -173,6 +175,12 @@ def _looks_like_ollama_base(api_base: str | None) -> bool:
     if normalized.endswith("/v1"):
         normalized = normalized[:-3].rstrip("/")
     return normalized.endswith(":11434") or ":11434/" in normalized
+
+
+def _looks_like_openai_compatible_base(api_base: str | None) -> bool:
+    if not api_base:
+        return False
+    return not _looks_like_ollama_base(api_base)
 
 
 def _ollama_model_available(payload: dict[str, Any], model: str) -> bool:

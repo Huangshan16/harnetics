@@ -29,7 +29,11 @@ class _LitellmEmbeddingFunction:
     """ChromaDB 自定义 EmbeddingFunction，路由到 litellm.embedding()。"""
 
     def __init__(self, model: str, api_key: str = "", base_url: str = "") -> None:
-        self._model = _normalize_embedding_model(model)
+        self._model = _normalize_embedding_model(
+            model,
+            api_key=api_key,
+            base_url=base_url,
+        )
         self._api_key = api_key or None
         self._base_url = base_url or None
 
@@ -70,12 +74,14 @@ class _LitellmEmbeddingFunction:
         return False
 
 
-def _normalize_embedding_model(model_name: str) -> str:
-    """将 bare OpenAI embedding 模型名归一化为 litellm provider/model 形式。"""
+def _normalize_embedding_model(model_name: str, api_key: str = "", base_url: str = "") -> str:
+    """将 bare 远程 embedding 模型名归一化为 litellm provider/model 形式。"""
     normalized = model_name.strip()
     if not normalized or "/" in normalized:
         return normalized
     if normalized.startswith(_OPENAI_EMBEDDING_PREFIX):
+        return f"openai/{normalized}"
+    if (api_key or base_url) and not _looks_like_local_model(normalized):
         return f"openai/{normalized}"
     return normalized
 
@@ -87,7 +93,7 @@ def _looks_like_local_model(model_name: str) -> bool:
 
 def _uses_remote_embeddings(model_name: str, api_key: str = "", base_url: str = "") -> bool:
     """判断是否应走远程 embedding provider，而不是本地 sentence-transformers。"""
-    normalized = _normalize_embedding_model(model_name)
+    normalized = _normalize_embedding_model(model_name, api_key=api_key, base_url=base_url)
     if "/" in normalized:
         return True
     if api_key or base_url:
@@ -108,7 +114,11 @@ class EmbeddingStore:
         import chromadb
 
         self._client = chromadb.PersistentClient(path=persist_path)
-        self._model_name = _normalize_embedding_model(model_name)
+        self._model_name = _normalize_embedding_model(
+            model_name,
+            api_key=api_key,
+            base_url=base_url,
+        )
         self._ef = self._build_ef(
             self._model_name,
             api_key=api_key,
