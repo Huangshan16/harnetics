@@ -1,5 +1,5 @@
 # [INPUT]: 依赖 os、litellm、httpx
-# [OUTPUT]: 对外提供 HarneticsLLM 与旧版 LocalLlmClient 后向/兼容
+# [OUTPUT]: 对外提供 HarneticsLLM 与旧版 LocalLlmClient 后向/兼容；HarneticsLLM 支持 explainable availability status
 # [POS]: llm 包的模型调用适配层，统一本地 Ollama 与 OpenAI-compatible 提供方接入
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
@@ -84,20 +84,40 @@ class HarneticsLLM:
 
     def check_availability(self) -> bool:
         """返回当前 LLM 是否可用或已完成最小配置。"""
+        return self.availability_status()[0]
+
+    def availability_status(self) -> tuple[bool, str]:
+        """返回可用性与失败原因，供状态端点展示。"""
         try:
             if _is_ollama_model(self.model):
                 base_url = _normalize_api_base(self.model, self.api_base) or DEFAULT_OLLAMA_BASE_URL
                 resp = httpx.get(f"{base_url}/api/tags", timeout=2.0)
                 if resp.status_code != 200:
-                    return False
+                    return False, f"ollama probe returned {resp.status_code}"
                 try:
-                    return _ollama_model_available(resp.json(), self.model)
-                except Exception:
-                    return False
-            # 云端 / OpenAI-compatible: 这里不强依赖外网探活，凭证存在即可视为可调用。
-            return bool(self.api_key)
-        except Exception:
-            return False
+                    if _ollama_model_available(resp.json(), self.model):
+                        return True, ""
+                    return False, f"ollama model not found: {self.model.removeprefix('ollama/')}"
+                except Exception as exc:
+                    return False, f"invalid ollama payload: {type(exc).__name__}"
+
+            if not self.api_key:
+                return False, "missing api key"
+
+            probe_base = self.api_base or _default_cloud_probe_base(self.model)
+            if not probe_base:
+                return True, ""
+
+            resp = httpx.get(
+                f"{probe_base.rstrip('/')}/models",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                timeout=2.0,
+            )
+            if resp.status_code == 200:
+                return True, ""
+            return False, f"provider probe returned {resp.status_code}"
+        except Exception as exc:
+            return False, f"{type(exc).__name__}: {exc}"
 
 
 def _default_api_base(model: str) -> str | None:
@@ -111,6 +131,14 @@ def _default_api_base(model: str) -> str | None:
 
     if _is_ollama_model(_normalize_model(model, None)):
         return DEFAULT_OLLAMA_BASE_URL
+    return None
+
+
+def _default_cloud_probe_base(model: str) -> str | None:
+    if model.startswith("openai/"):
+        return "https://api.openai.com/v1"
+    if model.startswith("deepseek/"):
+        return "https://api.deepseek.com/v1"
     return None
 
 

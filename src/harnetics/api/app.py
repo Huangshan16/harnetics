@@ -30,6 +30,7 @@ async def _lifespan(app: FastAPI):
 
     # ---- 初始化 EmbeddingStore（可能失败，降级为 None） ----
     emb_store = None
+    embedding_error = ""
     try:
         from harnetics.graph.embeddings import EmbeddingStore
         emb_store = EmbeddingStore(
@@ -38,9 +39,10 @@ async def _lifespan(app: FastAPI):
             api_key=settings.embedding_api_key,
             base_url=settings.embedding_base_url,
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        embedding_error = f"{type(exc).__name__}: {exc}"
     app.state.embedding_store = emb_store
+    app.state.embedding_error = embedding_error
 
     yield
 

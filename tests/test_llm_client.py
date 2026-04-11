@@ -29,3 +29,29 @@ def test_check_availability_requires_requested_ollama_model() -> None:
 
         assert HarneticsLLM(model="gemma4:26b", api_base="http://localhost:11434").check_availability() is True
         assert HarneticsLLM(model="llama3:8b", api_base="http://localhost:11434").check_availability() is False
+
+
+def test_cloud_availability_reports_missing_api_key() -> None:
+    ok, error = HarneticsLLM(
+        model="deepseek/deepseek-chat",
+        api_base="https://api.deepseek.com/v1",
+        api_key="",
+    ).availability_status()
+
+    assert ok is False
+    assert error == "missing api key"
+
+
+def test_cloud_availability_reports_provider_probe_failure() -> None:
+    with patch("harnetics.llm.client.httpx.get") as mock_get:
+        response = Mock()
+        response.status_code = 401
+        mock_get.return_value = response
+
+        ok, error = HarneticsLLM(
+            model="openai/gpt-4.1-mini",
+            api_key="sk-test",
+        ).availability_status()
+
+    assert ok is False
+    assert "401" in error

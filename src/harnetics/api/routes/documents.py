@@ -1,6 +1,6 @@
 # [INPUT]: 依赖 FastAPI、graph.store CRUD、graph.indexer、graph.embeddings.EmbeddingStore、models (DocumentNode/Section/ICDParameter)
-# [OUTPUT]: 对外提供 documents_router (文档上传/列表/详情/删除/章节/向量搜索) 与 ICD 参数路由
-# [POS]: api/routes 的文档域 REST 端点，被 api/app.py 注册
+# [OUTPUT]: 对外提供 documents_router (文档上传/列表/详情/删除/章节/向量搜索/关键词降级) 与 ICD 参数路由
+# [POS]: api/routes 的文档域 REST 端点，被 api/app.py 注册；搜索接口优先走向量检索，失败时回退关键词匹配
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
 from __future__ import annotations
@@ -97,23 +97,28 @@ def list_documents(
 
 
 @router.get("/documents/search")
-def search_documents(q: str, top_k: int = 10, request: Request = None):
-    """向量语义检索：按 query 检索相似文档，返回排序结果列表。"""
-    embedding_store = getattr(request.app.state, "embedding_store", None) if request else None
-    if embedding_store is None:
-        raise HTTPException(503, "embedding store not available")
+def search_documents(q: str, request: Request, top_k: int = 10):
+    """语义检索优先，向量不可用时自动降级到关键词匹配。"""
+    query = q.strip()
+    if not query:
+        return {"results": [], "analysis_mode": "keyword"}
 
-    hits = embedding_store.search_documents(query=q, top_k=top_k)
-    results = []
-    for hit in hits:
-        doc = store.get_document(hit["doc_id"])
-        if doc is None:
-            continue
-        results.append({
-            **_doc_dict(doc),
-            "relevance_score": hit.get("relevance_score", 0),
-        })
-    return {"results": results}
+    embedding_store = getattr(request.app.state, "embedding_store", None)
+    if embedding_store is not None:
+        try:
+            hits = embedding_store.search_documents(query=query, top_k=top_k)
+            if hits:
+                return {
+                    "results": _search_results_from_hits(hits),
+                    "analysis_mode": "ai_vector",
+                }
+        except Exception:
+            pass
+
+    return {
+        "results": _keyword_search_results(query, top_k),
+        "analysis_mode": "keyword",
+    }
 
 
 @router.get("/documents/{doc_id}")
@@ -179,6 +184,51 @@ def _doc_dict(d) -> dict:
         "engineering_phase": d.engineering_phase, "version": d.version,
         "status": d.status, "created_at": d.created_at, "updated_at": d.updated_at,
     }
+
+
+def _search_results_from_hits(hits: list[dict]) -> list[dict]:
+    results: list[dict] = []
+    for hit in hits:
+        doc = store.get_document(hit["doc_id"])
+        if doc is None:
+            continue
+        results.append({
+            **_doc_dict(doc),
+            "relevance_score": round(float(hit.get("relevance_score", 0)), 4),
+        })
+    return results
+
+
+def _keyword_search_results(query: str, top_k: int) -> list[dict]:
+    ranked: list[tuple[float, object]] = []
+    for doc in store.search_documents(query):
+        ranked.append((_keyword_score(doc, query), doc))
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    return [
+        {
+            **_doc_dict(doc),
+            "relevance_score": round(score, 4),
+        }
+        for score, doc in ranked[:top_k]
+    ]
+
+
+def _keyword_score(doc, query: str) -> float:
+    text = " ".join(
+        part for part in (doc.doc_id, doc.title, doc.doc_type, doc.department) if part
+    ).lower()
+    lowered_query = query.lower()
+    tokens = [token for token in lowered_query.split() if token]
+
+    score = 0.15
+    if lowered_query in doc.title.lower():
+        score += 0.55
+    if lowered_query in doc.doc_id.lower():
+        score += 0.35
+    if tokens:
+        token_hits = sum(1 for token in tokens if token in text)
+        score += 0.25 * (token_hits / len(tokens))
+    return min(score, 0.99)
 
 
 def _sec_dict(s) -> dict:

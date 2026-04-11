@@ -2,7 +2,7 @@
 
 **Feature Branch**: `004-ai-vector-impact-draft`  
 **Created**: 2026-04-11  
-**Status**: Draft  
+**Status**: Implemented  
 **Input**: 变更影响分析接入 AI 向量分析，实现环境变量配置（本地/云端 LLM、向量模型），影响分析精准定位受影响章节，影响报告→草稿台自动填写联动，草稿台候选文档向量筛选
 
 ## User Scenarios & Testing

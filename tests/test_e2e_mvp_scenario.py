@@ -231,6 +231,7 @@ def test_impact_analysis(client):
     assert impact_res.status_code == 200
     data = impact_res.json()
     assert data["trigger_doc_id"] == doc_id
+    assert data["analysis_mode"] in {"ai_vector", "heuristic"}
     assert "impacted_docs" in data
     assert "report_id" in data
 
@@ -292,6 +293,7 @@ def test_draft_route_uses_app_settings_for_llm(client):
         chromadb_path=client.app.state.settings.chromadb_path,
         llm_model="gemma4:26b",
         llm_base_url="http://localhost:11434",
+        llm_api_key="sk-test",
     )
 
     with patch("harnetics.api.routes.draft.HarneticsLLM") as MockLLM, patch(
@@ -308,15 +310,22 @@ def test_draft_route_uses_app_settings_for_llm(client):
 
         res = client.post(
             "/api/draft/generate",
-            json={"subject": "路由配置传递测试", "related_doc_ids": [], "template_id": ""},
+            json={
+                "subject": "路由配置传递测试",
+                "related_doc_ids": [],
+                "template_id": "",
+                "source_report_id": "RPT-001",
+            },
         )
 
     assert res.status_code == 200, res.text
     MockLLM.assert_called_once_with(
         model="gemma4:26b",
         api_base="http://localhost:11434",
+        api_key="sk-test",
     )
     MockGenerator.assert_called_once_with(llm=llm_instance)
+    assert MockGenerator.return_value.generate.call_args.args[0]["source_report_id"] == "RPT-001"
 
 
 def test_impact_analysis_localizes_sections_for_section_aware_edges(client):
@@ -384,6 +393,58 @@ status: Approved
         doc for doc in impact_res.json()["impacted_docs"] if doc["doc_id"] == downstream_doc_id
     )
     assert impacted["affected_sections"]
+    assert impacted["analysis_mode"] in {"ai_vector", "heuristic"}
+    first_section = impacted["affected_sections"][0]
+    assert "section_id" in first_section
+
+
+def test_document_search_route_falls_back_to_keyword_when_embedding_unavailable(client):
+    client.app.state.embedding_store = None
+
+    target_doc_id = _upload_inline_markdown(
+        client,
+        "DOC-TST-002.md",
+        """---
+doc_id: DOC-TST-002
+title: 涡轮泵性能试验大纲
+doc_type: TestPlan
+department: 试验与验证部
+system_level: Subsystem
+engineering_phase: Test
+version: v1.0
+status: Approved
+---
+# 涡轮泵试验
+
+本文档定义涡轮泵性能试验工况与验收准则。
+""",
+    )
+    _upload_inline_markdown(
+        client,
+        "DOC-ICD-009.md",
+        """---
+doc_id: DOC-ICD-009
+title: 异构载荷接口控制文件
+doc_type: ICD
+department: 航电部
+system_level: System
+engineering_phase: Design
+version: v1.0
+status: Approved
+---
+# 接口控制
+
+本文档描述载荷电气接口。
+""",
+    )
+
+    res = client.get("/api/documents/search?q=涡轮泵性能试验&top_k=5")
+
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["analysis_mode"] == "keyword"
+    assert data["results"][0]["doc_id"] == target_doc_id
+    assert data["results"][0]["relevance_score"] > 0
 
 
 # ================================================================
@@ -415,6 +476,10 @@ def test_status_endpoint(client):
     assert "documents" in data
     assert "drafts" in data
     assert "stale_references" in data
+    assert "llm_model" in data
+    assert "embedding_model" in data
+    assert "llm_error" in data
+    assert "embedding_error" in data
 
 
 def test_dashboard_stats_alias_endpoint(client):

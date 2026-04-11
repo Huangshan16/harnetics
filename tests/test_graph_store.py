@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from harnetics.graph.embeddings import _normalize_embedding_model, _uses_remote_embeddings
 from harnetics.graph.indexer import DocumentIndexer
 from harnetics.graph.store import init_db
 from harnetics.graph import store
@@ -130,3 +131,15 @@ status: Approved
     assert doc.doc_type == "Requirement"
     assert doc.department == "系统工程部"
     assert doc.system_level == "System"
+
+
+def test_embedding_model_normalizes_bare_openai_name_for_cloud_routing() -> None:
+    assert _normalize_embedding_model("text-embedding-3-small") == "openai/text-embedding-3-small"
+    assert _uses_remote_embeddings("text-embedding-3-small") is True
+
+
+def test_embedding_model_keeps_local_sentence_transformer_route() -> None:
+    model_name = "paraphrase-multilingual-MiniLM-L12-v2"
+
+    assert _normalize_embedding_model(model_name) == model_name
+    assert _uses_remote_embeddings(model_name) is False

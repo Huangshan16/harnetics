@@ -1,7 +1,7 @@
 """
 # [INPUT]: 依赖 engine.draft_generator.DraftGenerator、llm.client.HarneticsLLM、graph.store (drafts 表)
 # [OUTPUT]: 对外提供 router: POST /api/draft/generate、GET /api/draft/{id}、GET /api/drafts、GET /api/draft/{id}/export
-# [POS]: api/routes 的草稿域端点，US2 草稿生成的 HTTP 入口，显式复用 app.state.settings 的 LLM 配置
+# [POS]: api/routes 的草稿域端点，US2 草稿生成的 HTTP 入口，显式复用 app.state.settings 的 LLM/API key，并接受 source_report_id
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 """
 from __future__ import annotations
@@ -10,7 +10,7 @@ import json
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from harnetics.engine.draft_generator import DraftGenerator
 from harnetics.graph import store
@@ -23,9 +23,10 @@ router = APIRouter(prefix="/api/draft", tags=["draft"])
 
 class DraftGenerateRequest(BaseModel):
     subject: str
-    related_doc_ids: list[str] = []
+    related_doc_ids: list[str] = Field(default_factory=list)
     template_id: str = ""
-    extra: dict = {}
+    source_report_id: str = ""
+    extra: dict = Field(default_factory=dict)
 
 
 # ---- 端点 ----------------------------------------------------------
@@ -37,6 +38,7 @@ def generate_draft(req: DraftGenerateRequest, request: Request) -> dict:
         "subject": req.subject,
         "related_doc_ids": req.related_doc_ids,
         "template_id": req.template_id,
+        "source_report_id": req.source_report_id,
         **req.extra,
     }
     try:
@@ -44,6 +46,7 @@ def generate_draft(req: DraftGenerateRequest, request: Request) -> dict:
         llm = HarneticsLLM(
             model=settings.llm_model,
             api_base=settings.llm_base_url,
+            api_key=settings.llm_api_key or None,
         )
         draft = DraftGenerator(llm=llm).generate(request_dict)
     except Exception as exc:

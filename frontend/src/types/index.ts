@@ -199,4 +199,5 @@ export interface DocumentSearchResult extends Document {
 
 export interface DocumentSearchResponse {
   results: DocumentSearchResult[]
+  analysis_mode: 'ai_vector' | 'keyword'
 }

@@ -34,11 +34,14 @@ function SectionBadge({ section }: { section: AffectedSection | string }) {
   )
 }
 
-function buildDraftUrl(reportId: string, docIds: string[]): string {
+function buildDraftUrl(report: ImpactReport, docIds: string[]): string {
   const params = new URLSearchParams()
-  params.set('source_report_id', reportId)
-  for (const id of docIds) params.append('doc_ids', id)
-  return `/draft/new?${params}`
+  params.set('report_id', report.report_id)
+  params.set('source_report_id', report.report_id)
+  params.set('trigger_doc_id', report.trigger_doc_id)
+  if (report.new_version) params.set('new_version', report.new_version)
+  for (const id of docIds) params.append('impacted_doc_id', id)
+  return `/draft?${params}`
 }
 
 export default function ImpactReportPage() {
@@ -114,7 +117,7 @@ export default function ImpactReportPage() {
 
       {rpt.impacted_docs.length > 0 && (
         <div className="flex justify-end">
-          <Button size="sm" className="gap-1.5" onClick={() => navigate(buildDraftUrl(rpt.report_id, rpt.impacted_docs.map(d => d.doc_id)))}>
+          <Button size="sm" className="gap-1.5" onClick={() => navigate(buildDraftUrl(rpt, rpt.impacted_docs.map(d => d.doc_id)))}>
             一键生成对齐草稿<ChevronRight className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -194,7 +197,7 @@ export default function ImpactReportPage() {
                     </div>
                   )}
                 </div>
-                <Button variant="ghost" size="sm" className="gap-1 shrink-0 text-primary" onClick={() => navigate(buildDraftUrl(rpt.report_id, [d.doc_id]))}>
+                <Button variant="ghost" size="sm" className="gap-1 shrink-0 text-primary" onClick={() => navigate(buildDraftUrl(rpt, [d.doc_id]))}>
                   生成对齐草稿<ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </div>

@@ -78,6 +78,7 @@ export interface GenerateDraftRequest {
   subject: string
   related_doc_ids?: string[]
   template_id?: string
+  source_report_id?: string
   extra?: Record<string, unknown>
 }
 

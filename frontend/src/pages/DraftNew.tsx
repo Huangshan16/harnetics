@@ -9,14 +9,34 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Search, Check, ChevronRight, FileText, Sparkles } from 'lucide-react'
 import { fetchDocuments, generateDraft, searchDocuments } from '@/lib/api'
-import type { Document } from '@/types'
+import type { DocumentSearchResult } from '@/types'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+
+type CandidateDocument = DocumentSearchResult
+
+function asCandidate(doc: Omit<CandidateDocument, 'relevance_score'>): CandidateDocument {
+  return { ...doc, relevance_score: 0 }
+}
+
+function buildPrefillSubject(triggerDocId: string, impactedDocIds: string[], newVersion: string): string {
+  const versionText = newVersion ? ` ${newVersion}` : ''
+  if (impactedDocIds.length === 1) {
+    return `${impactedDocIds[0]} 对齐更新：响应 ${triggerDocId}${versionText} 变更`
+  }
+  return `批量对齐更新：响应 ${triggerDocId}${versionText} 变更`
+}
+
+function searchDescription(mode: 'idle' | 'prefill' | 'ai_vector' | 'keyword', count: number): string {
+  if (mode === 'prefill') return `已根据影响报告预填 ${count} 份来源文档`
+  if (mode === 'ai_vector') return `已通过 AI 向量检索到 ${count} 份候选文档`
+  if (mode === 'keyword') return `向量不可用，已降级为关键词匹配，返回 ${count} 份候选文档`
+  return `已检索到 ${count} 份文档，勾选要引用的来源`
+}
 
 export default function DraftNew() {
   const navigate = useNavigate()
@@ -25,31 +45,41 @@ export default function DraftNew() {
   const [topic, setTopic] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [generating, setGenerating] = useState(false)
-  const [candidates, setCandidates] = useState<Document[]>([])
-  const [allDocs, setAllDocs] = useState<Document[]>([])
+  const [candidates, setCandidates] = useState<CandidateDocument[]>([])
+  const [allDocs, setAllDocs] = useState<CandidateDocument[]>([])
   const [sourceReportId, setSourceReportId] = useState('')
+  const [searchMode, setSearchMode] = useState<'idle' | 'prefill' | 'ai_vector' | 'keyword'>('idle')
 
   // ---- 加载所有文档 + URL 预填逻辑 ----
   useEffect(() => {
     fetchDocuments({ per_page: 200 })
-      .then((res) => setAllDocs(res.documents))
+      .then((res) => setAllDocs(res.documents.map(asCandidate)))
       .catch(() => {})
   }, [])
 
   useEffect(() => {
-    const reportId = searchParams.get('source_report_id') || ''
-    const prefillDocIds = searchParams.getAll('doc_ids')
+    const reportId = searchParams.get('report_id') || searchParams.get('source_report_id') || ''
+    const triggerDocId = searchParams.get('trigger_doc_id') || ''
+    const impactedDocIds = searchParams.getAll('impacted_doc_id')
+    const newVersion = searchParams.get('new_version') || ''
     if (reportId) setSourceReportId(reportId)
-    if (prefillDocIds.length > 0 && allDocs.length > 0) {
-      const prefillSet = new Set(prefillDocIds)
+    if (!triggerDocId && impactedDocIds.length === 0) return
+
+    if (triggerDocId && impactedDocIds.length > 0) {
+      setTopic(buildPrefillSubject(triggerDocId, impactedDocIds, newVersion))
+    }
+
+    if (allDocs.length > 0) {
+      const prefillSet = new Set([triggerDocId, ...impactedDocIds].filter(Boolean))
       const matched = allDocs.filter((d) => prefillSet.has(d.doc_id))
       if (matched.length > 0) {
         setCandidates(matched)
         setSelected(new Set(matched.map((d) => d.doc_id)))
         setStep(2)
+        setSearchMode('prefill')
       }
     }
-  }, [searchParams, allDocs])
+  }, [allDocs, searchParams])
 
   function toggleDoc(docId: string) {
     setSelected((prev) => {
@@ -63,11 +93,13 @@ export default function DraftNew() {
     if (!topic.trim()) return
     searchDocuments(topic.trim())
       .then((res) => {
-        setCandidates(res.results.length > 0 ? res.results : allDocs)
+        setCandidates(res.results)
+        setSearchMode(res.analysis_mode)
         setStep(2)
       })
       .catch(() => {
-        setCandidates(allDocs)
+        setCandidates([])
+        setSearchMode('keyword')
         setStep(2)
       })
   }
@@ -77,7 +109,7 @@ export default function DraftNew() {
     generateDraft({
       subject: topic,
       related_doc_ids: Array.from(selected),
-      extra: sourceReportId ? { source_report_id: sourceReportId } : undefined,
+      source_report_id: sourceReportId || undefined,
     })
       .then((draft) => navigate(`/draft/${draft.draft_id}`))
       .catch(() => setGenerating(false))
@@ -123,11 +155,13 @@ export default function DraftNew() {
             <CardTitle className="text-base flex items-center gap-2">
               <Search className="h-4 w-4 text-primary" />步骤二：候选来源文档
             </CardTitle>
-            <CardDescription>已检索到 {candidates.length} 份文档，勾选要引用的来源</CardDescription>
+            <CardDescription>{searchDescription(searchMode, candidates.length)}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {step < 2 ? (
               <p className="text-sm text-muted-foreground text-center py-8">请先完成步骤一</p>
+            ) : candidates.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">没有找到与当前主题相关的候选文档，请调整主题描述后重试。</p>
             ) : (
               <>
                 {candidates.map((doc) => {
@@ -146,6 +180,9 @@ export default function DraftNew() {
                           <code className="text-xs font-mono text-primary">{doc.doc_id}</code>
                           <Badge variant="secondary" className="text-xs">{doc.version}</Badge>
                           <Badge variant="outline" className="text-xs">{doc.doc_type}</Badge>
+                          {doc.relevance_score > 0 && (
+                            <Badge variant="secondary" className="text-xs">相关度 {doc.relevance_score.toFixed(2)}</Badge>
+                          )}
                         </div>
                         <p className="text-sm font-medium mt-0.5 truncate">{doc.title}</p>
                         <p className="text-xs text-muted-foreground">{doc.department}</p>

@@ -8,6 +8,17 @@ from __future__ import annotations
 from harnetics.models.document import Section
 
 _COLLECTION_NAME = "harnetics_sections"
+_OPENAI_EMBEDDING_PREFIX = "text-embedding-"
+_LOCAL_MODEL_HINTS = (
+    "paraphrase-",
+    "all-",
+    "bge-",
+    "e5-",
+    "gte-",
+    "nomic-embed",
+    "mxbai-embed",
+    "sentence-transformers/",
+)
 
 
 # ================================================================
@@ -18,7 +29,7 @@ class _LitellmEmbeddingFunction:
     """ChromaDB 自定义 EmbeddingFunction，路由到 litellm.embedding()。"""
 
     def __init__(self, model: str, api_key: str = "", base_url: str = "") -> None:
-        self._model = model
+        self._model = _normalize_embedding_model(model)
         self._api_key = api_key or None
         self._base_url = base_url or None
 
@@ -32,10 +43,56 @@ class _LitellmEmbeddingFunction:
         )
         return [item["embedding"] for item in resp.data]
 
+    def embed_documents(self, input: list[str]) -> list[list[float]]:  # noqa: A002
+        return self(input)
 
-def _is_cloud_model(model_name: str) -> bool:
-    """model_name 含 '/' 视为云端路由（如 openai/text-embedding-3-small）。"""
-    return "/" in model_name
+    def embed_query(self, input: list[str]) -> list[list[float]]:  # noqa: A002
+        return self(input)
+
+    @staticmethod
+    def name() -> str:
+        return "litellm"
+
+    @staticmethod
+    def build_from_config(config: dict) -> "_LitellmEmbeddingFunction":
+        return _LitellmEmbeddingFunction(
+            model=str(config.get("model", "")),
+            base_url=str(config.get("base_url", "")),
+        )
+
+    def get_config(self) -> dict:
+        return {
+            "model": self._model,
+            "base_url": self._base_url or "",
+        }
+
+    def is_legacy(self) -> bool:
+        return False
+
+
+def _normalize_embedding_model(model_name: str) -> str:
+    """将 bare OpenAI embedding 模型名归一化为 litellm provider/model 形式。"""
+    normalized = model_name.strip()
+    if not normalized or "/" in normalized:
+        return normalized
+    if normalized.startswith(_OPENAI_EMBEDDING_PREFIX):
+        return f"openai/{normalized}"
+    return normalized
+
+
+def _looks_like_local_model(model_name: str) -> bool:
+    normalized = model_name.strip().lower()
+    return any(normalized.startswith(prefix) for prefix in _LOCAL_MODEL_HINTS)
+
+
+def _uses_remote_embeddings(model_name: str, api_key: str = "", base_url: str = "") -> bool:
+    """判断是否应走远程 embedding provider，而不是本地 sentence-transformers。"""
+    normalized = _normalize_embedding_model(model_name)
+    if "/" in normalized:
+        return True
+    if api_key or base_url:
+        return not _looks_like_local_model(normalized)
+    return False
 
 
 class EmbeddingStore:
@@ -51,8 +108,12 @@ class EmbeddingStore:
         import chromadb
 
         self._client = chromadb.PersistentClient(path=persist_path)
-        self._model_name = model_name
-        self._ef = self._build_ef(model_name, api_key=api_key, base_url=base_url)
+        self._model_name = _normalize_embedding_model(model_name)
+        self._ef = self._build_ef(
+            self._model_name,
+            api_key=api_key,
+            base_url=base_url,
+        )
         self._collection = self._client.get_or_create_collection(
             name=_COLLECTION_NAME,
             embedding_function=self._ef,
@@ -60,7 +121,7 @@ class EmbeddingStore:
 
     @staticmethod
     def _build_ef(model_name: str, api_key: str = "", base_url: str = ""):
-        if _is_cloud_model(model_name):
+        if _uses_remote_embeddings(model_name, api_key=api_key, base_url=base_url):
             return _LitellmEmbeddingFunction(model=model_name, api_key=api_key, base_url=base_url)
         from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
         return SentenceTransformerEmbeddingFunction(model_name=model_name)

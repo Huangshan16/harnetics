@@ -51,7 +51,7 @@ class Settings:
 
 def get_settings() -> Settings:
     """读取 .env 文件 + 环境变量覆盖默认值。"""
-    load_dotenv(override=False)
+    load_dotenv(dotenv_path=Path.cwd() / ".env", override=False)
 
     database_path = os.environ.get("HARNETICS_DATABASE_PATH")
     raw_upload_dir = os.environ.get("HARNETICS_RAW_UPLOAD_DIR")

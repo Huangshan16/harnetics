@@ -53,6 +53,7 @@ def ingest(
     from harnetics.graph.embeddings import EmbeddingStore
     from harnetics.config import get_settings
 
+    settings = get_settings()
     db_path = Path(db)
     init_db(db_path)
 
@@ -66,7 +67,9 @@ def ingest(
         console.print("[cyan]►[/cyan] 初始化向量索引（首次运行可能下载/加载嵌入模型）")
         emb_store = EmbeddingStore(
             persist_path=chroma,
-            model_name=get_settings().embedding_model,
+            model_name=settings.embedding_model,
+            api_key=settings.embedding_api_key,
+            base_url=settings.embedding_base_url,
         )
     else:
         console.print("[yellow]![/yellow] 已跳过向量索引，仅导入图谱 SQLite；如需语义索引请追加 --with-embeddings")
