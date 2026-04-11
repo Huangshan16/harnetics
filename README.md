@@ -46,18 +46,18 @@ cd ..
 PowerShell:
 
 ```powershell
-$env:HARNETICS_LLM_MODEL = "ollama/gemma4:26b-it-a4b-q4_K_M"
+$env:HARNETICS_LLM_MODEL = "gemma4:26b"
 $env:HARNETICS_LLM_BASE_URL = "http://localhost:11434"
-ollama pull gemma4:26b-it-a4b-q4_K_M
+ollama pull gemma4:26b
 ollama serve
 ```
 
 Bash:
 
 ```bash
-export HARNETICS_LLM_MODEL="ollama/gemma4:26b-it-a4b-q4_K_M"
+export HARNETICS_LLM_MODEL="gemma4:26b"
 export HARNETICS_LLM_BASE_URL="http://localhost:11434"
-ollama pull gemma4:26b-it-a4b-q4_K_M
+ollama pull gemma4:26b
 ollama serve
 ```
 
