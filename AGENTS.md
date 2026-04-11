@@ -2,9 +2,13 @@
 Markdown + YAML + docs-first
 
 <directory>
-docs/ - 项目文档真相源，承载设计、规格、执行计划、生成物、技能流程产物与外部参考 (6 子目录: design-docs, exec-plans, generated, product-specs, references, superpowers)
+docs/ - 项目文档真相源，承载设计、规格、执行计划、生成物、技能流程产物与外部参考 (7 子目录: daily, design-docs, exec-plans, generated, product-specs, references, superpowers)
 fixtures/ - 航天领域样本文档语料，模拟跨部门、跨层级、跨版本对齐场景，作为未来解析、检索、评测与演示输入
 frontend/ - React 18 + TypeScript 5.7 + Vite 6 SPA 前端 (shadcn/ui amethyst-haze 主题)
+specs/ - Spec Kit 特性目录，保存每个顺序特性的 spec/plan/tasks/checklists/contracts 闭环产物
+src/ - Python 应用源码，含 legacy repository 栈与 graph/API 主工作流
+tests/ - pytest 回归、契约与端到端场景集合
+var/ - 本地运行时产物目录（SQLite、上传文件、导出、向量索引）
 </directory>
 
 <config>
@@ -17,6 +21,10 @@ README.md - 项目运行入口，提供安装、启动、冒烟与文档导航
 - docs/：当前有效文档与治理页面
 - fixtures/：样本需求、设计、ICD、质量、模板与测试大纲
 - frontend/：React SPA 前端 (开发: `npm run dev` / 生产: `npm run build` → FastAPI 托管)
+- specs/：Spec Kit 特性闭环产物（spec/plan/tasks/checklists/contracts）
+- src/：Python 后端与图谱/LLM/导入/评估引擎
+- tests/：契约、回归与 E2E 测试
+- var/：本地运行时数据库与索引目录
 
 架构法则
 - 根目录只保留全局入口；产品规格、设计叙事、执行计划统一进入 `docs/`
@@ -29,6 +37,9 @@ README.md - 项目运行入口，提供安装、启动、冒烟与文档导航
 - 2026-04-05: 为 `docs/` 与 `fixtures/` 补齐分形 `AGENTS.md` 导航
 - 2026-04-05: 新增 `docs/superpowers/specs/`，存放经 brainstorming 确认的设计 spec
 - 2026-04-06: 新增根级 `README.md`，固化项目启动、冒烟与导航入口
+- 2026-04-11: 补齐顶级 `specs/` / `src/` / `tests/` / `var/` 地图，纳入 GEB 目录导航
+- 2026-04-11: 新增 `003-llm-impact-hardening` 特性闭环，收敛 LLM 连接稳健性与影响分析章节定位
+- 2026-04-11: 新增 `docs/daily/` 开发记忆日志目录，开始沉淀当日实现决策
 
 ## Active Technologies
 - Python 3.11+ + FastAPI (web framework), Jinja2 (templates), HTMX (frontend interactivity), litellm (LLM client), chromadb (vector store), sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 (embeddings), PyYAML (parsing), typer+rich (CLI), uvicorn (ASGI server), python-multipart (file upload) (001-aerospace-doc-alignment)

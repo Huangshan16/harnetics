@@ -11,9 +11,9 @@ validation.py: 草稿校验器，产出阻断与警告级问题。
 drafts.py: 草稿编排服务，负责 prompt 组装、生成落库、引注附着与状态更新。
 repository.py: SQLite schema 初始化与唯一持久化边界（旧版 catalog 数据）。
 models/: 领域 dataclass 包——document/icd/draft/impact + 旧版 records 兼容层。
-graph/: 新版图谱 SQLite 连接管理器、DDL、索引、查询、向量检索与导入引擎。
-llm/: LLM 客户端包，承载 LiteLLM、本地 Ollama 与 OpenAI-compatible 接入。
-api/: React SPA 主工作流入口，负责图谱栈 API、仪表盘统计与前端 dist 托管。
+graph/: 新版图谱 SQLite 连接管理器、DDL、索引、查询、向量检索与导入引擎；当前已支持 section-aware 引用边。
+llm/: LLM 客户端包，承载 LiteLLM、本地 Ollama 与 OpenAI-compatible 接入；负责裸 Ollama 模型名归一化。
+api/: React SPA 主工作流入口，负责图谱栈 API、仪表盘统计与前端 dist 托管；草稿与状态端点复用统一 LLM 配置语义。
 parsers/: Markdown/YAML/ICD 解析器。
 engine/: 对齐草稿、冲突检测、影响分析等图谱工作流核心引擎。
 evaluators/: 草稿质量门评估器集合（EA/EB/ED）。

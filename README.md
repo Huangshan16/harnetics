@@ -67,6 +67,11 @@ ollama serve
 curl http://localhost:11434/api/tags
 ```
 
+说明：
+
+- `HARNETICS_LLM_MODEL` 可以直接写 `gemma4:26b`；后端会按 Ollama provider 自动归一化，不必手工补 `ollama/`
+- `/api/status` / `/api/dashboard/stats` 会检查目标模型是否真的存在，而不只是 Ollama 服务是否存活
+
 ### 方案 B：云端 OpenAI / OpenAI-compatible
 
 适合直接调用云端模型，或接公司内网网关 / LiteLLM Proxy / vLLM / 其他 OpenAI-compatible 端点。
