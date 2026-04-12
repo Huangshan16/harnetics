@@ -46,6 +46,8 @@ README.md - 项目运行入口，提供安装、启动、冒烟与文档导航
 - SQLite (relational store, single-file) + chromadb (vector embeddings, section-level) (001-aerospace-doc-alignment)
 - TypeScript 5.7 (frontend) + Python 3.11+ (backend, 已有) + React 18, Vite 6, react-router-dom 6, shadcn/ui, Tailwind CSS v4, lucide-react, FastAPI (backend) (002-react-frontend-replacement)
 - SQLite (backend, 已有) — 前端无本地持久化 (002-react-frontend-replacement)
+- Python 3.13 (backend) + TypeScript 5.7 (existing frontend untouched) + FastAPI, httpx, openai SDK (新增), python-dotenv, pytest (005-openai-compatible-llm-client)
+- SQLite (graph DB) + ChromaDB (existing vector store, unchanged for this feature) (005-openai-compatible-llm-client)
 
 ## Recent Changes
 - 001-aerospace-doc-alignment: Added Python 3.11+ + FastAPI (web framework), Jinja2 (templates), HTMX (frontend interactivity), litellm (LLM client), chromadb (vector store), sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 (embeddings), PyYAML (parsing), typer+rich (CLI), uvicorn (ASGI server), python-multipart (file upload)
