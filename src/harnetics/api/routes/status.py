@@ -1,13 +1,14 @@
 """
-# [INPUT]: 依赖 app.state.settings、graph.store (counts)、graph.query (stale_references)、llm.client (availability_status)
+# [INPUT]: 依赖 app.state.settings、config.get_dotenv_path、graph.store (counts)、graph.query (stale_references)、llm.client (availability_status)
 # [OUTPUT]: 对外提供 router: GET /api/status、GET /api/dashboard/stats
-# [POS]: api/routes 的健康看板端点，US5 仪表盘数据源，含 LLM 与 Embedding 可用性及错误原因
+# [POS]: api/routes 的健康看板端点，US5 仪表盘数据源，含 LLM/Embedding 可用性、effective route 与配置来源
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 """
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
+from harnetics.config import get_dotenv_path
 from harnetics.graph import store
 from harnetics.graph.query import get_graph
 
@@ -33,18 +34,21 @@ def system_status(request: Request) -> dict:
     stale = get_graph().get_stale_references()
 
     settings = request.app.state.settings
+    dotenv_path = get_dotenv_path()
 
     # ---- LLM 可用性 ----
     llm_ok = False
     llm_error = ""
+    llm_client = None
     try:
         from harnetics.llm.client import HarneticsLLM
 
-        llm_ok, llm_error = HarneticsLLM(
+        llm_client = HarneticsLLM(
             model=settings.llm_model,
             api_base=settings.llm_base_url,
             api_key=settings.llm_api_key or None,
-        ).availability_status()
+        )
+        llm_ok, llm_error = llm_client.availability_status()
     except Exception as exc:
         llm_error = f"{type(exc).__name__}: {exc}"
 
@@ -65,12 +69,17 @@ def system_status(request: Request) -> dict:
         "stale_references": len(stale),
         "llm_available": llm_ok,
         "llm_model": settings.llm_model,
+        "llm_base_url": settings.llm_base_url,
+        "llm_effective_model": llm_client.model if llm_client else "",
+        "llm_effective_base_url": llm_client.api_base if llm_client and llm_client.api_base else "",
         "llm_error": llm_error,
         "embedding_available": embedding_available,
         "embedding_model": settings.embedding_model,
+        "embedding_base_url": settings.embedding_base_url,
         "embedding_error": embedding_error,
         "sections_indexed": sections_indexed,
         "eval_pass_rate": eval_pass_rate,
         "eval_pass": eval_pass,
         "eval_blocked": eval_blocked,
+        "config_env_file": str(dotenv_path) if dotenv_path is not None else "",
     }

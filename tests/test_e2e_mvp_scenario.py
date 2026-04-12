@@ -477,9 +477,14 @@ def test_status_endpoint(client):
     assert "drafts" in data
     assert "stale_references" in data
     assert "llm_model" in data
+    assert "llm_base_url" in data
+    assert "llm_effective_model" in data
+    assert "llm_effective_base_url" in data
     assert "embedding_model" in data
+    assert "embedding_base_url" in data
     assert "llm_error" in data
     assert "embedding_error" in data
+    assert "config_env_file" in data
 
 
 def test_dashboard_stats_alias_endpoint(client):

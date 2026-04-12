@@ -1,5 +1,5 @@
 # [INPUT]: 依赖 os、pathlib、dotenv，定义运行时路径与 LLM/Embedding 配置
-# [OUTPUT]: 提供 Settings 数据对象、默认路径常量与 get_settings() 工厂
+# [OUTPUT]: 提供 Settings 数据对象、默认路径常量、.env 路径解析与 get_settings() 工厂
 # [POS]: harnetics 的运行时配置中心，统一定义 LLM、Embedding、存储路径参数，支持 .env 加载
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
@@ -16,8 +16,9 @@ DEFAULT_RAW_UPLOAD_DIR = Path("var/uploads")
 DEFAULT_EXPORT_DIR = Path("var/exports")
 DEFAULT_CHROMADB_PATH = Path("var/chroma")
 DEFAULT_SERVER_PORT = 8000
-DEFAULT_LLM_BASE_URL = "http://localhost:11434"
-DEFAULT_LLM_MODEL = "gemma4:26b"
+DEFAULT_LLM_BASE_URL = "https://aihubmix.com/v1"
+DEFAULT_LLM_MODEL = "claude-sonnet-4-6"
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,9 +50,28 @@ class Settings:
     server_port: int = DEFAULT_SERVER_PORT
 
 
+def get_dotenv_path() -> Path | None:
+    """解析当前应加载的 .env：优先显式指定，其次 cwd，最后仓库根目录。"""
+    explicit = os.environ.get("HARNETICS_ENV_FILE", "").strip()
+    if explicit:
+        return Path(explicit).expanduser()
+
+    cwd_dotenv = Path.cwd() / ".env"
+    if cwd_dotenv.exists():
+        return cwd_dotenv
+
+    project_dotenv = _PROJECT_ROOT / ".env"
+    if project_dotenv.exists():
+        return project_dotenv
+
+    return None
+
+
 def get_settings() -> Settings:
     """读取 .env 文件 + 环境变量覆盖默认值。"""
-    load_dotenv(dotenv_path=Path.cwd() / ".env", override=False)
+    dotenv_path = get_dotenv_path()
+    if dotenv_path is not None:
+        load_dotenv(dotenv_path=dotenv_path, override=False)
 
     database_path = os.environ.get("HARNETICS_DATABASE_PATH")
     raw_upload_dir = os.environ.get("HARNETICS_RAW_UPLOAD_DIR")

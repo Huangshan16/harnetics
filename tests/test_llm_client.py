@@ -70,6 +70,20 @@ def test_bare_remote_model_is_normalized_for_openai_compatible_gateway() -> None
     assert llm.api_base == "https://aihubmix.com/v1"
 
 
+def test_default_constructor_uses_current_settings_for_remote_gateway(monkeypatch) -> None:
+    monkeypatch.setenv("HARNETICS_LLM_MODEL", "claude-sonnet-4-6")
+    monkeypatch.setenv("HARNETICS_LLM_BASE_URL", "https://aihubmix.com/v1")
+    monkeypatch.setenv("HARNETICS_LLM_API_KEY", "sk-harnetics")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    llm = HarneticsLLM()
+
+    assert llm.requested_model == "claude-sonnet-4-6"
+    assert llm.model == "openai/claude-sonnet-4-6"
+    assert llm.api_base == "https://aihubmix.com/v1"
+    assert llm.api_key == "sk-harnetics"
+
+
 def test_generate_draft_enables_litellm_debug_once_when_requested(monkeypatch) -> None:
     class FakeLiteLLM:
         def __init__(self) -> None:

@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from harnetics.app import create_app
-from harnetics.config import Settings, get_settings
+from harnetics.config import Settings, get_dotenv_path, get_settings
 
 
 def test_healthcheck_returns_ok() -> None:
@@ -64,3 +64,29 @@ def test_get_settings_loads_dotenv(tmp_path: Path, monkeypatch) -> None:
     assert settings.llm_api_key == "sk-llm"
     assert settings.embedding_model == "text-embedding-3-small"
     assert settings.embedding_api_key == "sk-emb"
+
+
+def test_get_settings_falls_back_to_project_root_dotenv(tmp_path: Path, monkeypatch) -> None:
+    nested = tmp_path / "frontend"
+    nested.mkdir()
+    monkeypatch.chdir(nested)
+    monkeypatch.setattr("harnetics.config._PROJECT_ROOT", tmp_path)
+    monkeypatch.delenv("HARNETICS_LLM_MODEL", raising=False)
+    monkeypatch.delenv("HARNETICS_LLM_API_KEY", raising=False)
+    (tmp_path / ".env").write_text(
+        "\n".join(
+            [
+                "HARNETICS_LLM_MODEL=claude-sonnet-4-6",
+                "HARNETICS_LLM_BASE_URL=https://aihubmix.com/v1",
+                "HARNETICS_LLM_API_KEY=sk-root",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    settings = get_settings()
+
+    assert get_dotenv_path() == tmp_path / ".env"
+    assert settings.llm_model == "claude-sonnet-4-6"
+    assert settings.llm_base_url == "https://aihubmix.com/v1"
+    assert settings.llm_api_key == "sk-root"

@@ -40,16 +40,34 @@ class HarneticsLLM:
 
     def __init__(
         self,
-        model: str = "gemma4:26b",
+        model: str | None = None,
         api_base: str | None = None,
         api_key: str | None = None,
     ) -> None:
-        self.model = _normalize_model(model, api_base)
+        resolved_model = model
+        resolved_api_base = api_base
+        resolved_api_key = api_key
+
+        if resolved_model is None:
+            from harnetics.config import get_settings
+
+            settings = get_settings()
+            resolved_model = settings.llm_model
+            if resolved_api_base is None:
+                resolved_api_base = settings.llm_base_url
+            if resolved_api_key is None and settings.llm_api_key:
+                resolved_api_key = settings.llm_api_key
+
+        raw_model = (resolved_model or "").strip()
+        raw_api_base = resolved_api_base or _default_api_base(raw_model)
+
+        self.requested_model = raw_model
+        self.model = _normalize_model(raw_model, raw_api_base)
         self.api_base = _normalize_api_base(
             self.model,
-            api_base or _default_api_base(self.model),
+            raw_api_base,
         )
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        self.api_key = resolved_api_key or os.environ.get("OPENAI_API_KEY")
 
     def generate_draft(self, system_prompt: str, context: str, user_request: str) -> str:
         """调用 LLM 生成草稿 Markdown。"""
