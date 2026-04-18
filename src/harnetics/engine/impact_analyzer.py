@@ -139,10 +139,8 @@ class ImpactAnalyzer:
         visited: dict[str, ImpactedDoc] = {}
         queue: deque[tuple[str, int, str, str, list]] = deque()
 
-        upstream, _ = store.get_edges_for_doc(start_doc_id)
-        for edge in upstream:
-            if edge.source_doc_id == start_doc_id:
-                continue
+        _, downstream = store.get_edges_for_doc(start_doc_id)
+        for edge in downstream:
             queue.append(
                 (edge.source_doc_id, 1, edge.relation or "references", start_doc_id, changed_sections)
             )
@@ -188,10 +186,8 @@ class ImpactAnalyzer:
                 next_changed_sections = self._select_sections(current_doc_id, section_ids)
                 if not next_changed_sections:
                     next_changed_sections = store.get_sections(current_doc_id)
-                next_upstream, _ = store.get_edges_for_doc(current_doc_id)
-                for edge in next_upstream:
-                    if edge.source_doc_id == current_doc_id:
-                        continue
+                _, next_downstream = store.get_edges_for_doc(current_doc_id)
+                for edge in next_downstream:
                     queue.append(
                         (edge.source_doc_id, depth + 1, edge.relation or "references",
                          current_doc_id, next_changed_sections)

@@ -151,6 +151,8 @@ def graph_document_detail(request: Request, doc_id: str):
         raise HTTPException(status_code=404, detail="document not found")
     sections = graph_store.get_sections(doc_id)
     upstream, downstream = graph_store.get_edges_for_doc(doc_id)
+    upstream = graph_store.collapse_doc_edges(doc_id, upstream)
+    downstream = graph_store.collapse_doc_edges(doc_id, downstream)
     icd_params = graph_store.get_icd_parameters(doc_id)
     return templates.TemplateResponse(
         request,

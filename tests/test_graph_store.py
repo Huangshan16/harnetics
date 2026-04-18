@@ -11,6 +11,7 @@ from harnetics.graph.embeddings import _normalize_embedding_model, _uses_remote_
 from harnetics.graph.indexer import DocumentIndexer
 from harnetics.graph.store import init_db
 from harnetics.graph import store
+from harnetics.models.document import DocumentEdge
 from harnetics.repository import Repository
 
 
@@ -158,3 +159,98 @@ def test_embedding_model_normalizes_bare_remote_name_for_openai_compatible_gatew
         api_key="sk-test",
         base_url="https://aihubmix.com/v1",
     ) is True
+
+
+def test_document_indexer_reingest_replaces_outgoing_edges_instead_of_accumulating(tmp_path: Path) -> None:
+    db_path = tmp_path / "graph.db"
+    init_db(db_path)
+
+    target_path = tmp_path / "DOC-TGT-001.md"
+    target_path.write_text(
+        """---
+title: 目标文档
+doc_type: Design
+department: 动力系统部
+system_level: Subsystem
+engineering_phase: Design
+version: v1.0
+status: Approved
+---
+# 1. 目标文档
+无引用。
+""",
+        encoding="utf-8",
+    )
+
+    source_path = tmp_path / "DOC-SRC-001.md"
+    source_path.write_text(
+        """---
+title: 源文档
+doc_type: Design
+department: 动力系统部
+system_level: Subsystem
+engineering_phase: Design
+version: v1.0
+status: Approved
+---
+# 1. 总述
+引用 DOC-TGT-001。
+""",
+        encoding="utf-8",
+    )
+
+    indexer = DocumentIndexer()
+    indexer.ingest_document(str(target_path))
+    indexer.ingest_document(str(source_path))
+    indexer.ingest_document(str(source_path))
+
+    upstream, _ = store.get_edges_for_doc("DOC-SRC-001")
+
+    assert len(upstream) == 1
+    assert upstream[0].target_doc_id == "DOC-TGT-001"
+
+
+def test_collapse_doc_edges_dedupes_multiple_section_level_references() -> None:
+    edges = [
+        DocumentEdge(
+            source_doc_id="DOC-A",
+            source_section_id="DOC-A-sec-1",
+            target_doc_id="DOC-B",
+            target_section_id="",
+            relation="references",
+            confidence=0.8,
+        ),
+        DocumentEdge(
+            source_doc_id="DOC-A",
+            source_section_id="DOC-A-sec-2",
+            target_doc_id="DOC-B",
+            target_section_id="",
+            relation="references",
+            confidence=1.0,
+        ),
+        DocumentEdge(
+            source_doc_id="DOC-A",
+            source_section_id="DOC-A-sec-3",
+            target_doc_id="DOC-B",
+            target_section_id="",
+            relation="constrained_by",
+            confidence=0.7,
+        ),
+        DocumentEdge(
+            source_doc_id="DOC-A",
+            source_section_id="DOC-A-sec-4",
+            target_doc_id="DOC-C",
+            target_section_id="",
+            relation="references",
+            confidence=0.9,
+        ),
+    ]
+
+    collapsed = store.collapse_doc_edges("DOC-A", edges)
+
+    assert [(edge.target_doc_id, edge.relation) for edge in collapsed] == [
+        ("DOC-B", "constrained_by"),
+        ("DOC-B", "references"),
+        ("DOC-C", "references"),
+    ]
+    assert next(edge for edge in collapsed if edge.target_doc_id == "DOC-B" and edge.relation == "references").confidence == 1.0

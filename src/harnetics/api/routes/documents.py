@@ -128,6 +128,8 @@ def document_detail(doc_id: str):
         raise HTTPException(404, "document not found")
     sections = store.get_sections(doc_id)
     upstream, downstream = store.get_edges_for_doc(doc_id)
+    upstream = store.collapse_doc_edges(doc_id, upstream)
+    downstream = store.collapse_doc_edges(doc_id, downstream)
     icd_params = store.get_icd_parameters(doc_id)
     return {
         "document": _doc_dict(doc),

@@ -231,7 +231,7 @@ class DocumentIndexer:
         edges = extract_section_relations(doc_id, sections)
         if not edges:
             edges = extract_relations(doc_id, content)
-        self._safe_insert_edges(edges)
+        self._safe_insert_edges(doc_id, edges)
 
         return doc
 
@@ -275,7 +275,7 @@ class DocumentIndexer:
         edges = extract_section_relations(doc_id, sections)
         if not edges:
             edges = extract_relations(doc_id, content)
-        self._safe_insert_edges(edges)
+        self._safe_insert_edges(doc_id, edges)
 
         # ICD 参数
         if fm.get("doc_type") == "ICD" or "ICD" in doc_id.upper():
@@ -296,10 +296,10 @@ class DocumentIndexer:
         return stem
 
     @staticmethod
-    def _safe_insert_edges(edges: list[DocumentEdge]) -> None:
-        """只插入 target_doc_id 已存在的边。"""
+    def _safe_insert_edges(source_doc_id: str, edges: list[DocumentEdge]) -> None:
+        """只保留有效 target，并用最新结果替换该文档的全部 outgoing edges。"""
         valid = [e for e in edges if store.get_document(e.target_doc_id)]
-        store.insert_edges(valid)
+        store.replace_edges_for_source(source_doc_id, valid)
 
     def ingest_directory(
         self, dir_path: str, recursive: bool = True

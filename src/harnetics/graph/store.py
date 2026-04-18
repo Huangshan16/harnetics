@@ -1,6 +1,6 @@
 # [INPUT]: 依赖 sqlite3、pathlib、同目录 schema.sql 与 models 包 (DocumentNode/Section/DocumentEdge/ICDParameter)
-# [OUTPUT]: 对外提供 init_db()、get_connection() 及文档/章节/边/ICD 参数的 CRUD 函数
-# [POS]: graph 包的 SQLite 存储层，负责图谱库初始化、连接管理和全量读写操作
+# [OUTPUT]: 对外提供 init_db()、get_connection() 及文档/章节/边/ICD 参数的 CRUD 与关系折叠函数
+# [POS]: graph 包的 SQLite 存储层，负责图谱库初始化、连接管理、全量读写与文档级关系去重
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
 from __future__ import annotations
@@ -160,6 +160,23 @@ def insert_edges(edges: list["DocumentEdge"]) -> None:
         )
 
 
+def replace_edges_for_source(source_doc_id: str, edges: list["DocumentEdge"]) -> None:
+    """用最新提取结果替换一个源文档的全部 outgoing edges。"""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM edges WHERE source_doc_id=?", (source_doc_id,))
+        if not edges:
+            return
+        conn.executemany(
+            """INSERT INTO edges
+               (source_doc_id, source_section_id, target_doc_id,
+                target_section_id, relation, confidence, created_by)
+               VALUES (?,?,?,?,?,?,?)""",
+            [(e.source_doc_id, e.source_section_id, e.target_doc_id,
+              e.target_section_id, e.relation, e.confidence, e.created_by)
+             for e in edges],
+        )
+
+
 def insert_icd_parameters(params: list["ICDParameter"]) -> None:
     if not params:
         return
@@ -297,14 +314,35 @@ def delete_document(doc_id: str) -> None:
 
 
 def get_edges_for_doc(doc_id: str) -> tuple[list["DocumentEdge"], list["DocumentEdge"]]:
+    """返回 (upstream, downstream)。
+    upstream: 本文档引用的上游文档，即以本文档为 source 的边。
+    downstream: 引用了本文档的下游文档，即以本文档为 target 的边。
+    """
     with get_connection() as conn:
         up = conn.execute(
-            "SELECT * FROM edges WHERE target_doc_id=?", (doc_id,)
-        ).fetchall()
-        down = conn.execute(
             "SELECT * FROM edges WHERE source_doc_id=?", (doc_id,)
         ).fetchall()
+        down = conn.execute(
+            "SELECT * FROM edges WHERE target_doc_id=?", (doc_id,)
+        ).fetchall()
         return ([_row_to_edge(r) for r in up], [_row_to_edge(r) for r in down])
+
+
+def collapse_doc_edges(doc_id: str, edges: list["DocumentEdge"]) -> list["DocumentEdge"]:
+    """把 section-level 边折叠成文档详情页所需的文档级唯一关系。"""
+    collapsed: dict[tuple[str, str], "DocumentEdge"] = {}
+    for edge in edges:
+        other_doc_id = edge.target_doc_id if edge.source_doc_id == doc_id else edge.source_doc_id
+        key = (other_doc_id, edge.relation)
+        current = collapsed.get(key)
+        if current is None or edge.confidence > current.confidence:
+            collapsed[key] = edge
+
+    def _sort_key(edge: "DocumentEdge") -> tuple[str, str, float]:
+        other_doc_id = edge.target_doc_id if edge.source_doc_id == doc_id else edge.source_doc_id
+        return (other_doc_id, edge.relation, -float(edge.confidence))
+
+    return sorted(collapsed.values(), key=_sort_key)
 
 
 def search_documents(q: str) -> list["DocumentNode"]:

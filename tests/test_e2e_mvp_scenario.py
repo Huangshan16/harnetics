@@ -141,6 +141,59 @@ def test_document_detail_and_sections(client):
     assert isinstance(secs_list, list)
 
 
+def test_document_detail_collapses_duplicate_upstream_relations(client):
+    target_doc_id = _upload_inline_markdown(
+        client,
+        "DOC-REQ-001.md",
+        """---
+title: 上游需求
+doc_type: Requirement
+department: 系统工程部
+system_level: System
+engineering_phase: Requirement
+version: v1.0
+status: Approved
+---
+# 1. 上游需求
+供其他文档引用。
+""",
+    )
+
+    source_doc_id = _upload_inline_markdown(
+        client,
+        "DOC-DES-900.md",
+        f"""---
+title: 会重复引用同一文档的设计
+doc_type: Design
+department: 动力系统部
+system_level: Subsystem
+engineering_phase: Design
+version: v1.0
+status: Approved
+---
+# 1. 总体说明
+本节引用 {target_doc_id}。
+
+# 2. 详细设计
+本节再次引用 {target_doc_id}。
+""",
+    )
+
+    res_detail = client.get(f"/api/documents/{source_doc_id}")
+
+    assert res_detail.status_code == 200
+    detail = res_detail.json()
+    assert detail["upstream"] == [
+        {
+            "edge_id": detail["upstream"][0]["edge_id"],
+            "source_doc_id": source_doc_id,
+            "target_doc_id": target_doc_id,
+            "relation": "derived_from",
+            "confidence": 1.0,
+        }
+    ]
+
+
 # ================================================================
 # T4: 草稿生成（US2，mock LLM）
 # ================================================================
