@@ -1,12 +1,15 @@
 # Harnetics
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![CI](https://github.com/Huangshan16/harnetics/actions/workflows/ci.yml/badge.svg)](https://github.com/Huangshan16/harnetics/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Node.js 20+](https://img.shields.io/badge/node-20+-green.svg)](https://nodejs.org/)
 
 **Aerospace document alignment workbench** — cross-department traceability, draft generation, and change impact analysis powered by document graph and LLM.
 
 > 中文文档：[README_zh.md](README_zh.md)
+>
+> Local planning workspaces such as `docs/`, `specs/`, `.agents/`, and `.specify/` are intentionally kept out of GitHub publishing and remain local-only.
 
 > Commercial aerospace engineers spend 40–60% of their time daily on document writing and review. The most time-consuming aspect is not “writing” but “aligning” – ensuring that a single document is consistent with other documents across multiple departments and hierarchical levels. Harnetics has compressed this process from 2–3 days to half a day using a document graph + LLM.
 
@@ -174,10 +177,22 @@ harnetics/
 │       └── types/         #   TypeScript domain types
 ├── fixtures/              # Sample aerospace documents
 ├── tests/                 # pytest test suite
-├── docs/                  # Design docs, specs, references
-├── specs/                 # Feature specification archives (Spec Kit)
+├── AGENTS.md              # Repository map and engineering protocol
+├── ARCHITECTURE.md        # Public architecture overview
+├── CONTRIBUTING.md        # Contribution workflow
+├── CHANGELOG.md           # Release history
+├── README_zh.md           # Chinese public README
 └── var/                   # Runtime data (SQLite, ChromaDB) — gitignored
 ```
+
+## Local-Only Workspaces
+
+The following directories are used as local planning and agent workspaces and are intentionally excluded from Git publishing:
+
+- `docs/` — design notes, planning material, internal references
+- `specs/` — Spec Kit feature artifacts
+- `.agents/` — local agent skills and prompts
+- `.specify/` — local feature workflow state
 
 ## Documentation
 
@@ -186,11 +201,20 @@ harnetics/
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System structure, data flow, module boundaries |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
-| [docs/design-docs/aerospace-mvp-v3.md](docs/design-docs/aerospace-mvp-v3.md) | Core design narrative — the "why" behind Harnetics |
-| [docs/design-docs/core-beliefs.md](docs/design-docs/core-beliefs.md) | Design principles |
-| [docs/PRODUCT_SENSE.md](docs/PRODUCT_SENSE.md) | User profiles and value proposition |
-| [docs/SECURITY.md](docs/SECURITY.md) | Security design rationale |
-| [docs/RELIABILITY.md](docs/RELIABILITY.md) | Reliability boundaries |
+| [README_zh.md](README_zh.md) | Chinese public README |
+| [.env.example](.env.example) | Environment variable reference |
+
+## Roadmap
+
+The roadmap below is derived from the MVP definition: solve one concrete pain first, then expand document coverage and governance without breaking the core alignment loop.
+
+| Horizon | Focus | Planned work |
+|---------|-------|--------------|
+| **Now (MVP)** | Core alignment loop | Markdown/YAML ingest, document graph, citation-backed draft generation, impact analysis, evaluator gates, React workbench |
+| **Next (P1)** | Broader document ingestion | Add Word, PDF, and Excel parsers; strengthen ICD table extraction; add file watcher-based re-indexing |
+| **Next (P1)** | Human governance | Add review queue, AI edge confirmation workflow, stale-reference remediation, stronger conflict surfacing |
+| **Later (P2)** | Scale and collaboration | Move from SQLite-only assumptions toward PostgreSQL-ready scale, add richer audit/history views, team review workflows, and real-time collaboration endpoints |
+| **Later (P2)** | Domain depth | Extend support for CAD metadata ingestion, more reuse-aware knowledge retrieval, and stronger cross-department traceability analytics |
 
 ## Contributing
 

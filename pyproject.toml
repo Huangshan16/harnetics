@@ -40,7 +40,8 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/anthropic-sam/harnetics"
-Documentation = "https://github.com/anthropic-sam/harnetics/blob/main/docs/"
+Documentation = "https://github.com/anthropic-sam/harnetics#readme"
+ChineseDocs = "https://github.com/anthropic-sam/harnetics/blob/main/README_zh.md"
 Repository = "https://github.com/anthropic-sam/harnetics"
 Issues = "https://github.com/anthropic-sam/harnetics/issues"
 Changelog = "https://github.com/anthropic-sam/harnetics/blob/main/CHANGELOG.md"

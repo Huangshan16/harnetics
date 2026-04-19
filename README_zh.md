@@ -1,6 +1,7 @@
 # Harnetics
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![CI](https://github.com/Huangshan16/harnetics/actions/workflows/ci.yml/badge.svg)](https://github.com/Huangshan16/harnetics/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Node.js 20+](https://img.shields.io/badge/node-20+-green.svg)](https://nodejs.org/)
 
@@ -9,6 +10,8 @@
 航天工程师每天花 40–60% 的时间在文档编写和评审上。最耗时的不是"写"，而是"对齐"——确保一份文档与多部门、多层级的其他文档保持一致。Harnetics 通过文档图谱 + LLM 将这个过程从 2–3 天压缩到半天。
 
 > English documentation: [README.md](README.md)
+>
+> `docs/`、`specs/`、`.agents/`、`.specify/` 是本地规划与 Agent 工作区，默认不进入 GitHub 开源发布。
 
 ---
 
@@ -163,10 +166,22 @@ harnetics/
 │       └── types/         #   TypeScript 领域类型
 ├── fixtures/              # 航天领域样本文档
 ├── tests/                 # pytest 测试套件
-├── docs/                  # 设计文档、规格、参考资料
-├── specs/                 # 特性规格存档（Spec Kit）
+├── AGENTS.md              # 仓库总地图与工程协议
+├── ARCHITECTURE.md        # 对外公开的架构总览
+├── CONTRIBUTING.md        # 贡献流程说明
+├── CHANGELOG.md           # 版本历史
+├── README_zh.md           # 中文公开 README
 └── var/                   # 运行时数据（SQLite、ChromaDB）— 已 gitignore
 ```
+
+## 本地工作区
+
+以下目录保留给本地规划、Spec Kit 和 Agent 工作流使用，默认不随 Git 发布：
+
+- `docs/` — 设计稿、规划文档、内部参考资料
+- `specs/` — Spec Kit 特性闭环产物
+- `.agents/` — 本地 Agent 技能与提示词
+- `.specify/` — 本地特性流程状态
 
 ## 文档导航
 
@@ -175,11 +190,20 @@ harnetics/
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 系统结构、数据流、模块边界 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献指南 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本发布历史 |
-| [docs/design-docs/aerospace-mvp-v3.md](docs/design-docs/aerospace-mvp-v3.md) | 核心设计叙事——Harnetics 的"为什么" |
-| [docs/design-docs/core-beliefs.md](docs/design-docs/core-beliefs.md) | 设计原则 |
-| [docs/PRODUCT_SENSE.md](docs/PRODUCT_SENSE.md) | 用户画像与价值主张 |
-| [docs/opensource-playbook.md](docs/opensource-playbook.md) | 开源运营手册（首次开源创始人参考指南） |
-| [docs/SECURITY.md](docs/SECURITY.md) | 安全设计说明 |
+| [README.md](README.md) | 英文公开 README |
+| [.env.example](.env.example) | 环境变量配置参考 |
+
+## Roadmap
+
+下面的 roadmap 直接基于 MVP 文档抽取：先把“文档对齐”这一条主链打通，再扩展输入格式、治理能力和规模化部署，而不是一开始就把系统做成大而全。
+
+| 阶段 | 重点 | 计划内容 |
+|------|------|----------|
+| **当前（MVP）** | 核心对齐闭环 | Markdown/YAML 入库、文档图谱、带引注草稿生成、变更影响分析、Evaluator 质量门、React 工作台 |
+| **下一阶段（P1）** | 扩展文档接入 | 增加 Word、PDF、Excel 解析器；强化 ICD 表格抽取；加入基于文件监听的自动重索引 |
+| **下一阶段（P1）** | 人类治理增强 | 增加审核队列、AI 边人工确认流程、陈旧引用修复提示、冲突显式标记 |
+| **后续阶段（P2）** | 规模化与协作 | 从 SQLite 主路径演进到 PostgreSQL-ready 架构，引入更完整的审计/历史视图、团队评审流和实时协作端点 |
+| **后续阶段（P2）** | 领域深度 | 扩展 CAD 元数据接入、强化历史知识复用检索、增强跨部门追溯分析能力 |
 
 ## 贡献
 

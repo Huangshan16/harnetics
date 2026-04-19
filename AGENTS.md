@@ -1,11 +1,11 @@
 # harnetics - 商业航天文档对齐产品工作台
-Markdown + YAML + docs-first
+Markdown + YAML + local planning workspace
 
 <directory>
-docs/ - 项目文档真相源，承载设计、规格、执行计划、生成物、技能流程产物与外部参考 (7 子目录: daily, design-docs, exec-plans, generated, product-specs, references, superpowers)
+docs/ - 本地工作区文档树（默认不进入 Git 发布），承载设计、规格、执行计划、生成物、技能流程产物与外部参考 (7 子目录: daily, design-docs, exec-plans, generated, product-specs, references, superpowers)
 fixtures/ - 航天领域样本文档语料，模拟跨部门、跨层级、跨版本对齐场景，作为未来解析、检索、评测与演示输入
 frontend/ - React 18 + TypeScript 5.7 + Vite 6 SPA 前端 (shadcn/ui amethyst-haze 主题)
-specs/ - Spec Kit 特性目录，保存每个顺序特性的 spec/plan/tasks/checklists/contracts 闭环产物
+specs/ - 本地 Spec Kit 特性目录（默认不进入 Git 发布），保存每个顺序特性的 spec/plan/tasks/checklists/contracts 闭环产物
 src/ - Python 应用源码，含 graph store/API/engine/evaluators/LLM/CLI 全栈
 tests/ - pytest 回归、契约与端到端场景集合
 var/ - 本地运行时产物目录（SQLite、上传文件、导出、向量索引）
@@ -23,16 +23,16 @@ CHANGELOG.md - 版本发布历史（Keep a Changelog 格式）
 </config>
 
 目录树
-- docs/：当前有效文档与治理页面
+- docs/：本地规划与治理页面（gitignored）
 - fixtures/：样本需求、设计、ICD、质量、模板与测试大纲
 - frontend/：React SPA 前端 (开发: `npm run dev` / 生产: `npm run build` → FastAPI 托管)
-- specs/：Spec Kit 特性闭环产物（spec/plan/tasks/checklists/contracts）
+- specs/：本地 Spec Kit 闭环产物（gitignored）
 - src/：Python 后端与图谱/LLM/导入/评估引擎
 - tests/：契约、回归与 E2E 测试
 - var/：本地运行时数据库与索引目录
 
 架构法则
-- 根目录只保留全局入口；产品规格、设计叙事、执行计划统一进入 `docs/`
+- 根目录保留公开 OSS 入口；`docs/` / `specs/` 作为本地工作区存在，不再参与 GitHub 发布物构成
 - `fixtures/` 只放可解析的领域样本，不混入规划性说明文档
 - 目录职责变化、文件迁移、模块新增时，先更新对应目录 `AGENTS.md`，再回写本文件
 
@@ -47,6 +47,7 @@ CHANGELOG.md - 版本发布历史（Keep a Changelog 格式）
 - 2026-04-11: 新增 `docs/daily/` 开发记忆日志目录，开始沉淀当日实现决策
 - 2026-04-12: 完成 `005-openai-compatible-llm-client` 主实现，远端 completion/embedding 统一走 OpenAI-compatible SDK，状态别名端点增加短 TTL 探测缓存
 - 2026-04-19: `008-opensource-readiness` — 开源项目基础设施：LICENSE (Apache 2.0)、CONTRIBUTING.md、CODE_OF_CONDUCT.md、CHANGELOG.md、.github/ (SECURITY.md + CI workflow + Issue/PR 模板)、README 重写、pyproject.toml 元数据补全、开源运营手册
+- 2026-04-19: `docs/`、`specs/`、`.agents/`、`.specify/` 收敛为本地工作区并加入 `.gitignore`；公开仓库入口改由根级 README / ARCHITECTURE / CONTRIBUTING 承担
 
 ## Active Technologies
 - Python 3.11+ + FastAPI (web framework), Jinja2 (templates), HTMX (frontend interactivity), litellm (LLM client), chromadb (vector store), sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 (embeddings), PyYAML (parsing), typer+rich (CLI), uvicorn (ASGI server), python-multipart (file upload) (001-aerospace-doc-alignment)

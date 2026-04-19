@@ -1,7 +1,7 @@
 <!--
-[INPUT]: 依赖根目录模块边界、docs/ 真相源、fixtures/ 样本文档库
+[INPUT]: 依赖根目录模块边界、fixtures/ 样本文档库与本地规划工作区约束
 [OUTPUT]: 对外提供当前系统结构、数据流与演进方向说明
-[POS]: 项目根目录的架构总图，被 AGENTS.md 与 docs/design-docs/index.md 引用
+[POS]: 项目根目录的公开架构总图，被 README.md、README_zh.md 与 AGENTS.md 引用
 [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 -->
 
@@ -14,7 +14,8 @@
 - `fixtures/`：机器相原始语料，提供受控需求、设计、模板与测试样本。
 - `src/harnetics/`：运行时主干，包含图谱存储、文档索引、草稿引擎、影响分析与 API 层。
 - `frontend/`：React 18 SPA，基于 shadcn/ui + Tailwind v4 构建。
-- `docs/`：语义相项目记忆，记录规格、计划、生成工件与治理约束。
+- 根级 `README.md` / `README_zh.md` / `ARCHITECTURE.md`：对外公开入口，承载开源仓库所需的运行与架构说明。
+- `docs/` / `specs/`：本地规划工作区，保留设计稿、Spec Kit 产物与内部参考，但默认不进入 Git 发布。
 
 ## 核心数据流
 
@@ -23,7 +24,7 @@
 3. `EvaluatorBus` 运行 8 个评估器（EA/EB/ED 系列），产出 Pass/Warning/Blocker 级别的质量门结果。
 4. `ImpactAnalyzer` 沿引用图进行 BFS 遍历，分析文档变更对下游文档的波及影响。
 5. `api/` 层暴露 REST JSON 端点，React SPA 通过 `/api/*` 消费数据。
-6. `docs/` 持续沉淀规格、执行计划和 schema 说明，保持语义相与机器相同构。
+6. 本地工作区 `docs/` 持续沉淀规格、执行计划和 schema 说明；公开仓库则由根级文档承担稳定入口。
 
 ## 模块边界
 
@@ -37,7 +38,8 @@
 | `src/harnetics/cli/` | init/ingest/serve 命令入口 | 增加 export/migrate 命令 |
 | `frontend/` | React SPA 前端 | 增加更细的编辑/审阅交互 |
 | `fixtures/` | 航天领域受控样本库 | 持续补充评测和回归语料 |
-| `docs/` | 项目决策、计划与生成工件 | 保持为人类与 Agent 的导航层 |
+| 根级文档 | 对外公开的安装、架构、贡献与变更说明 | 保持 GitHub 首页和开源入口清晰稳定 |
+| `docs/` / `specs/` | 本地规划、设计与特性闭环工件 | 保持为本地工作区，不进入 Git 发布物 |
 
 ## 运行时原则
 
