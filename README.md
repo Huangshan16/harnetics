@@ -8,8 +8,6 @@
 **Aerospace document alignment workbench** — cross-department traceability, draft generation, and change impact analysis powered by document graph and LLM.
 
 > 中文文档：[README_zh.md](README_zh.md)
->
-> Local planning workspaces such as `docs/`, `specs/`, `.agents/`, and `.specify/` are intentionally kept out of GitHub publishing and remain local-only.
 
 > Commercial aerospace engineers spend 40–60% of their time daily on document writing and review. The most time-consuming aspect is not “writing” but “aligning” – ensuring that a single document is consistent with other documents across multiple departments and hierarchical levels. Harnetics has compressed this process from 2–3 days to half a day using a document graph + LLM.
 
@@ -181,18 +179,8 @@ harnetics/
 ├── ARCHITECTURE.md        # Public architecture overview
 ├── CONTRIBUTING.md        # Contribution workflow
 ├── CHANGELOG.md           # Release history
-├── README_zh.md           # Chinese public README
-└── var/                   # Runtime data (SQLite, ChromaDB) — gitignored
+└── README_zh.md           # Chinese public README
 ```
-
-## Local-Only Workspaces
-
-The following directories are used as local planning and agent workspaces and are intentionally excluded from Git publishing:
-
-- `docs/` — design notes, planning material, internal references
-- `specs/` — Spec Kit feature artifacts
-- `.agents/` — local agent skills and prompts
-- `.specify/` — local feature workflow state
 
 ## Documentation
 

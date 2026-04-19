@@ -49,5 +49,6 @@ var/
 .superpowers/
 .agents/
 .specify/
-docs/
+docs/bank
+docs/daily
 specs/

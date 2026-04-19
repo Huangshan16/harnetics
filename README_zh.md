@@ -10,8 +10,6 @@
 航天工程师每天花 40–60% 的时间在文档编写和评审上。最耗时的不是"写"，而是"对齐"——确保一份文档与多部门、多层级的其他文档保持一致。Harnetics 通过文档图谱 + LLM 将这个过程从 2–3 天压缩到半天。
 
 > English documentation: [README.md](README.md)
->
-> `docs/`、`specs/`、`.agents/`、`.specify/` 是本地规划与 Agent 工作区，默认不进入 GitHub 开源发布。
 
 ---
 
@@ -170,18 +168,8 @@ harnetics/
 ├── ARCHITECTURE.md        # 对外公开的架构总览
 ├── CONTRIBUTING.md        # 贡献流程说明
 ├── CHANGELOG.md           # 版本历史
-├── README_zh.md           # 中文公开 README
-└── var/                   # 运行时数据（SQLite、ChromaDB）— 已 gitignore
+└── README_zh.md           # 中文公开 README
 ```
-
-## 本地工作区
-
-以下目录保留给本地规划、Spec Kit 和 Agent 工作流使用，默认不随 Git 发布：
-
-- `docs/` — 设计稿、规划文档、内部参考资料
-- `specs/` — Spec Kit 特性闭环产物
-- `.agents/` — 本地 Agent 技能与提示词
-- `.specify/` — 本地特性流程状态
 
 ## 文档导航
 
