@@ -1,225 +1,203 @@
 # Harnetics
 
-商业航天文档对齐工作台。FastAPI 图谱后端 + React/Vite SPA 前端，用于文档入库、草稿生成、评估闭环、变更影响分析与文档关系图谱。
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Node.js 20+](https://img.shields.io/badge/node-20+-green.svg)](https://nodejs.org/)
+[![CI](https://github.com/anthropic-sam/harnetics/actions/workflows/ci.yml/badge.svg)](https://github.com/anthropic-sam/harnetics/actions/workflows/ci.yml)
 
-## 技术栈
+**Aerospace document alignment workbench** — cross-department traceability, draft generation, and change impact analysis powered by document graph and LLM.
 
-- 后端：Python 3.11+、FastAPI、SQLite、ChromaDB
-- 前端：React 18、TypeScript 5.7、Vite 6、Tailwind CSS v4、shadcn/ui
-- LLM：OpenAI-compatible 会话客户端 + 显式本地 Ollama 兼容路径
-- Embeddings：sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 + OpenAI-compatible embeddings
+> 商业航天工程师每天花 40–60% 的时间在文档编写和评审上。最耗时的不是"写"，而是"对齐"——确保一份文档与多部门、多层级的其他文档一致。Harnetics 通过文档图谱 + LLM 将这个过程从 2–3 天压缩到半天。
 
-## 核心功能
+## Features
 
-| 模块 | 说明 |
-|------|------|
-| 文档库 | 上传/浏览 Markdown 与 YAML 文档，解析章节与 ICD 参数 |
-| 草稿生成 | 基于来源文档生成带引注草稿，并输出冲突与评估结果 |
-| 影响分析 | 沿依赖链分析文档变更会波及哪些下游文档 |
-| 文档图谱 | 可视化文档间引用/派生/约束关系 |
-| 仪表盘 | 文档数、草稿数、陈旧引用、LLM 状态等总览 |
+| Module | Description |
+|--------|-------------|
+| **Document Library** | Upload and browse Markdown/YAML documents with automatic section parsing and ICD parameter extraction |
+| **Draft Generation** | LLM-powered alignment draft with citation backfill, conflict detection, and evaluator quality gates |
+| **Impact Analysis** | BFS-based downstream change propagation with dual mode (AI vector + heuristic) |
+| **Document Graph** | Visualize reference/derivation/constraint relationships across documents |
+| **Dashboard** | Overview of document count, drafts, stale references, LLM status |
 
-## 前置依赖
+## Architecture
 
-- Python `>=3.11`
-- `uv`
-- Node.js `>=20`
-- `npm`
+```
+Ingest (Markdown/YAML)
+  → Parse & Graph Index (SQLite + ChromaDB)
+    → LLM Draft Generation (OpenAI-compatible)
+      → Evaluator Quality Gates (EA/EB/ED)
+        → Impact Analysis (BFS + vector search)
+          → API / React SPA
+```
 
-## 安装
+- **Backend**: Python 3.12+ · FastAPI · SQLite · ChromaDB · OpenAI SDK
+- **Frontend**: React 18 · TypeScript 5.7 · Vite 6 · Tailwind CSS v4 · shadcn/ui
+- **LLM**: OpenAI-compatible routing with explicit Ollama fallback
+- **Design**: Local-first — all data stays on your machine by default
+
+## Quick Start
+
+### Prerequisites
+
+| Tool | Version | Install |
+|------|---------|---------|
+| Python | ≥ 3.12 | [python.org](https://www.python.org/downloads/) |
+| uv | latest | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| Node.js | ≥ 20 | [nodejs.org](https://nodejs.org/) |
+
+### Install
 
 ```bash
+git clone https://github.com/anthropic-sam/harnetics.git
+cd harnetics
 uv sync --dev
-cd frontend
-npm install
-cd ..
+cd frontend && npm install && cd ..
 ```
 
-## 配置 LLM
+### Configure LLM
 
-### 方案 A：本地 Ollama（显式 fallback）
-
-适合离线开发和本地联调。当前云端调用链已经按 OpenAI-compatible 语义收敛；如果你要强制使用本地模型，请显式配置本地地址和模型名。
-
-PowerShell:
-
-```powershell
-$env:HARNETICS_LLM_MODEL = "gemma4:26b"
-$env:HARNETICS_LLM_BASE_URL = "http://localhost:11434"
-ollama pull gemma4:26b
-ollama serve
-```
-
-Bash:
+**Option A: Local Ollama** (offline, no API key)
 
 ```bash
-export HARNETICS_LLM_MODEL="gemma4:26b"
+export HARNETICS_LLM_MODEL="gemma3:12b"
 export HARNETICS_LLM_BASE_URL="http://localhost:11434"
-ollama pull gemma4:26b
-ollama serve
+ollama pull gemma3:12b && ollama serve
 ```
 
-校验：
+**Option B: Cloud OpenAI-compatible** (any provider)
 
 ```bash
-curl http://localhost:11434/api/tags
+export HARNETICS_LLM_MODEL="gpt-4o"
+export OPENAI_API_KEY="sk-..."
+# Optional: custom base URL for third-party gateways
+# export HARNETICS_LLM_BASE_URL="https://your-gateway/v1"
 ```
 
-说明：
+See [.env.example](.env.example) for all configuration options.
 
-- `HARNETICS_LLM_MODEL` 可以直接写 `gemma4:26b`；系统会保留该原始模型名用于请求体，并在诊断层显示 `ollama/gemma4:26b`
-- `/api/status` / `/api/dashboard/stats` 会检查目标模型是否真的存在，而不只是 Ollama 服务是否存活
-
-### 方案 B：云端 OpenAI / OpenAI-compatible
-
-适合直接调用云端模型，或接公司内网网关 / LiteLLM Proxy / vLLM / 其他 OpenAI-compatible 端点。远端请求体直接使用原始模型名，不再依赖 provider 前缀。
-
-PowerShell:
-
-```powershell
-$env:HARNETICS_LLM_MODEL = "claude-sonnet-4-6-think"
-$env:OPENAI_API_KEY = "<your-api-key>"
-$env:HARNETICS_LLM_BASE_URL = "https://aihubmix.com/v1"
-```
-
-Bash:
+### Initialize & Run
 
 ```bash
-export HARNETICS_LLM_MODEL="claude-sonnet-4-6-think"
-export OPENAI_API_KEY="<your-api-key>"
-export HARNETICS_LLM_BASE_URL="https://aihubmix.com/v1"
-export HARNETICS_EMBEDDING_MODEL="jina-embeddings-v5-text-small"
-export HARNETICS_EMBEDDING_API_KEY="$OPENAI_API_KEY"
-export HARNETICS_EMBEDDING_BASE_URL="$HARNETICS_LLM_BASE_URL"
-```
-
-如果你接的是自建或第三方 OpenAI-compatible 网关，把 `HARNETICS_LLM_BASE_URL` 换成对应的 `/v1` 根地址即可，例如：
-
-```bash
-export HARNETICS_LLM_MODEL="your-model-name"
-export OPENAI_API_KEY="dummy-or-real-key"
-export HARNETICS_LLM_BASE_URL="http://your-gateway:8000/v1"
-```
-
-说明：
-
-- 草稿生成与影响分析 AI 判定都走 OpenAI-compatible 会话接口；`HARNETICS_LLM_MODEL` 直接作为请求体中的 `model`。
-- 如果启用云端向量检索，`HARNETICS_EMBEDDING_MODEL` 也直接写原始 embedding 模型名；系统通过 OpenAI-compatible `embeddings` 接口请求远端网关。
-- `HARNETICS_LLM_BASE_URL` 用来覆盖会话接口的 API base；对第三方 OpenAI-compatible 网关和本地兼容网关都生效。
-- 官方 OpenAI 也可直接使用 `OPENAI_BASE_URL`；当前项目优先推荐统一配置 `HARNETICS_LLM_BASE_URL`。
-- `/api/status` / `/api/dashboard/stats` 会同时返回 `llm_model`、`llm_effective_model`、`llm_effective_base_url`、`embedding_base_url` 与 `config_env_file`，用于确认服务进程实际生效的路由。
-
-## 初始化数据
-
-```bash
+# Seed the graph database with sample aerospace documents
 uv run python -m harnetics.cli.main init --reset
 uv run python -m harnetics.cli.main ingest fixtures/
 
-# 如需同时建立向量索引（首次会慢一些）
-uv run python -m harnetics.cli.main ingest fixtures/ --with-embeddings
-```
-
-## 启动
-
-### 开发模式
-
-后端：
-
-```bash
+# Start the server
 uv run python -m harnetics.cli.main serve --reload
 ```
 
-前端：
+Open `http://localhost:8000` — you should see the dashboard with sample documents loaded.
+
+For frontend hot-reload during development:
 
 ```bash
-cd frontend
-npm run dev
+cd frontend && npm run dev    # → http://localhost:5173
 ```
 
-访问：
-
-- 前端开发地址：`http://localhost:5173`
-- 后端 API：`http://localhost:8000`
-
-### 生产构建 / 单端口托管
+### Smoke Test
 
 ```bash
-cd frontend
-npm run build
-cd ..
-uv run python -m harnetics.cli.main serve
-```
-
-构建后，FastAPI 会自动托管 `frontend/dist/`，直接访问 `http://localhost:8000`。
-
-## API / UI 冒烟测试
-
-```bash
-# 健康检查
 curl http://localhost:8000/health
-
-# 仪表盘统计
 curl http://localhost:8000/api/dashboard/stats
-
-# 文档列表
 curl http://localhost:8000/api/documents
-
-# 图谱原始边
-curl http://localhost:8000/api/graph/edges
-
-# 影响分析报告列表
-curl http://localhost:8000/api/impact
-
-# 触发一次影响分析
-curl -X POST http://localhost:8000/api/impact/analyze \
-  -H 'Content-Type: application/json' \
-  -d '{"doc_id":"DOC-SYS-001","old_version":"v1.0","new_version":"v2.0"}'
 ```
 
-手工 UI 校验建议顺序：
+## API Routes
 
-1. 打开 `/`，确认仪表盘能加载统计。
-2. 打开 `/documents`，确认样本文档可见。
-3. 进入某份 Requirement 文档后，在 `/impact` 里以它为触发文档发起影响分析。
-4. 打开 `/graph`，确认图谱节点和边存在。
+| Route | Description |
+|-------|-------------|
+| `GET /health` | Health check |
+| `GET /api/dashboard/stats` | Dashboard statistics |
+| `GET /api/documents` | List all documents |
+| `GET /api/documents/{doc_id}` | Document detail with sections |
+| `POST /api/draft/generate` | Generate alignment draft |
+| `GET /api/draft/{draft_id}` | View draft with citations |
+| `POST /api/impact/analyze` | Trigger impact analysis |
+| `GET /api/impact` | List impact reports |
+| `GET /api/impact/{report_id}` | Impact report detail |
+| `GET /api/graph/edges` | Raw graph edges |
+| `GET /api/status` | LLM/embedding configuration status |
 
-## 路由
+## UI Routes
 
-| 路径 | 说明 |
+| Path | Page |
 |------|------|
-| `/` | 仪表盘首页 |
-| `/documents` | 文档列表 |
-| `/documents/{doc_id}` | 文档详情 |
-| `/draft` | 草稿工作台 |
-| `/draft/{draft_id}` | 草稿详情 |
-| `/impact` | 影响分析首页 |
-| `/impact/{report_id}` | 影响分析详情 |
-| `/graph` | 文档图谱 |
-| `/design-system` | 设计系统演示页 |
+| `/` | Dashboard |
+| `/documents` | Document catalog |
+| `/documents/{doc_id}` | Document detail |
+| `/draft` | Draft workbench |
+| `/draft/{draft_id}` | Draft viewer |
+| `/impact` | Impact analysis |
+| `/impact/{report_id}` | Impact report |
+| `/graph` | Document graph visualization |
 
-## 测试
+## Testing
 
 ```bash
-# 后端测试
+# Backend
 uv run pytest tests/ -q
 
-# 前端构建校验
-cd frontend
-npm run build
+# Frontend build
+cd frontend && npm run build
 ```
 
-## 运行时目录
+## Docker
 
-```text
-var/
-├── harnetics-graph.db   # 图谱 / React SPA 主工作流数据库
-└── chroma/              # ChromaDB 向量索引
+```bash
+docker compose up
+# → http://localhost:8000
 ```
 
-## 文档入口
+The `docker-compose.yml` includes an optional Ollama service with GPU passthrough.
 
-- [ARCHITECTURE.md](ARCHITECTURE.md)
-- [docs/PRODUCT_SENSE.md](docs/PRODUCT_SENSE.md)
-- [docs/RELIABILITY.md](docs/RELIABILITY.md)
-- [docs/SECURITY.md](docs/SECURITY.md)
-- [docs/product-specs/mvp-prd.md](docs/product-specs/mvp-prd.md)
+## Project Structure
+
+```
+harnetics/
+├── src/harnetics/         # Python backend
+│   ├── api/               #   FastAPI routes + SPA hosting
+│   ├── cli/               #   typer CLI (init/ingest/serve)
+│   ├── engine/            #   Draft generation + impact analysis
+│   ├── evaluators/        #   Quality gate evaluators
+│   ├── graph/             #   SQLite store + ChromaDB embeddings
+│   ├── llm/               #   OpenAI-compatible LLM client
+│   ├── models/            #   Domain dataclasses
+│   └── parsers/           #   Markdown/YAML/ICD parsers
+├── frontend/              # React 18 SPA
+│   └── src/
+│       ├── pages/         #   Route pages
+│       ├── components/    #   Shared UI components
+│       ├── lib/           #   API client + utilities
+│       └── types/         #   TypeScript domain types
+├── fixtures/              # Sample aerospace documents
+├── tests/                 # pytest test suite
+├── docs/                  # Design docs, specs, references
+├── specs/                 # Feature specification archives
+└── var/                   # Runtime data (SQLite, ChromaDB)
+```
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System structure, data flow, module boundaries |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
+| [docs/design-docs/aerospace-mvp-v3.md](docs/design-docs/aerospace-mvp-v3.md) | Core design narrative — the "why" behind Harnetics |
+| [docs/design-docs/core-beliefs.md](docs/design-docs/core-beliefs.md) | Design principles |
+| [docs/PRODUCT_SENSE.md](docs/PRODUCT_SENSE.md) | User profiles and value proposition |
+| [docs/SECURITY.md](docs/SECURITY.md) | Security design rationale |
+| [docs/RELIABILITY.md](docs/RELIABILITY.md) | Reliability boundaries |
+
+## Contributing
+
+We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+
+- Setting up your development environment
+- Branch naming and commit conventions
+- Pull request process
+- Coding standards
+
+## License
+
+This project is licensed under the Apache License 2.0 — see [LICENSE](LICENSE) for details.

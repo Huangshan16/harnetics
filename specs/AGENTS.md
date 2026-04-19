@@ -8,6 +8,9 @@ AGENTS.md: `specs/` 的局部地图，约束每个顺序特性的闭环产物组
 003-llm-impact-hardening/: LLM 调用稳健性与影响分析章节定位修复特性。
 004-ai-vector-impact-draft/: AI 向量影响分析、草稿联动与环境路由闭环特性。
 005-openai-compatible-llm-client/: OpenAI-compatible AI 路由收敛特性，统一远端 completion/embedding 语义并强化运行时诊断。
+006-draft-workbench-enhancement/: 草稿工作台增强特性，Markdown 渲染、自动评估映射、引注回填与导出。
+007-remove-legacy-workflow/: 遗留 Jinja2/HTMX 工作流清理，删除废弃模块与测试。
+008-opensource-readiness/: 开源项目基础设施——LICENSE、CONTRIBUTING、CI、Issue/PR 模板、README 重写、开源运营手册。
 
 目录树
 - 001-aerospace-doc-alignment/：后端 MVP 特性闭环
@@ -15,6 +18,9 @@ AGENTS.md: `specs/` 的局部地图，约束每个顺序特性的闭环产物组
 - 003-llm-impact-hardening/：LLM + impact bugfix 闭环
 - 004-ai-vector-impact-draft/：AI 向量影响分析与草稿联动闭环
 - 005-openai-compatible-llm-client/：OpenAI-compatible AI 客户端与诊断收敛闭环
+- 006-draft-workbench-enhancement/：草稿工作台 Markdown 渲染 + 评估 + 引注闭环
+- 007-remove-legacy-workflow/：遗留模块清理闭环
+- 008-opensource-readiness/：开源项目基础设施闭环
 
 法则
 - `specs/<feature>/` 必须同时维护 `spec.md`、`plan.md`、`tasks.md` 与设计副产物
