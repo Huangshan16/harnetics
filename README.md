@@ -1,8 +1,6 @@
 # Harnetics
 
-商业航天文档对齐工作台。当前主线是 FastAPI 图谱后端 + React/Vite SPA 前端，用于文档入库、草稿生成、评估闭环、变更影响分析与文档关系图谱。
-
-> 注：仓库仍保留旧版 `Repository` 工作流，其默认数据库为 `var/harnetics.db`；当前 React 前端与图谱 API 默认使用独立的 `var/harnetics-graph.db`。两者不要混用同一 SQLite 文件。
+商业航天文档对齐工作台。FastAPI 图谱后端 + React/Vite SPA 前端，用于文档入库、草稿生成、评估闭环、变更影响分析与文档关系图谱。
 
 ## 技术栈
 
@@ -214,7 +212,6 @@ npm run build
 
 ```text
 var/
-├── harnetics.db         # 旧版 Repository 工作流数据库（兼容保留）
 ├── harnetics-graph.db   # 图谱 / React SPA 主工作流数据库
 └── chroma/              # ChromaDB 向量索引
 ```

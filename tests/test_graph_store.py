@@ -1,8 +1,9 @@
-# [INPUT]: 依赖 pytest、graph.store 与 legacy repository schema
+# [INPUT]: 依赖 pytest、graph.store 与 raw SQL 构造旧版 schema
 # [OUTPUT]: 提供 graph store 初始化与兼容性保护的回归测试
 # [POS]: tests 目录中的图谱存储层测试，锁定新 graph schema 不再误踩旧 repository DB
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,6 @@ from harnetics.graph.indexer import DocumentIndexer
 from harnetics.graph.store import init_db
 from harnetics.graph import store
 from harnetics.models.document import DocumentEdge
-from harnetics.repository import Repository
 
 
 def test_init_db_creates_graph_schema(tmp_path: Path) -> None:
@@ -30,8 +30,19 @@ def test_init_db_creates_graph_schema(tmp_path: Path) -> None:
 
 
 def test_init_db_rejects_legacy_repository_schema(tmp_path: Path) -> None:
+    """graph store 必须拒绝包含旧版 Repository schema 的数据库文件。"""
     db_path = tmp_path / "legacy.db"
-    Repository(db_path)
+    # ---- 用 raw SQL 创建旧版 documents 表（缺少 content_hash 等列） ----
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "CREATE TABLE documents ("
+            "  doc_id TEXT PRIMARY KEY,"
+            "  title TEXT NOT NULL,"
+            "  doc_type TEXT NOT NULL,"
+            "  version TEXT DEFAULT 'v1.0',"
+            "  status TEXT DEFAULT 'draft'"
+            ")"
+        )
 
     with pytest.raises(RuntimeError, match="legacy repository database"):
         init_db(db_path)

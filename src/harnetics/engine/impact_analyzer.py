@@ -27,10 +27,13 @@ _VECTOR_SIMILARITY_THRESHOLD = 0.65
 _MAX_LLM_CANDIDATES = 15
 
 # ---- LLM 精判 prompt ------------------------------------------------
-_JUDGE_SYSTEM = (
-    "你是航天领域文档影响分析专家。给定一段变更内容和一个候选章节，"
-    "判断候选章节是否受变更内容影响。仅输出 JSON: "
-    '{\"affected\": true/false, \"reason\": \"一句话理由\"}'
+_BATCH_JUDGE_SYSTEM = (
+    "你是航天领域文档影响分析专家。给定一段变更内容和多个候选章节，"
+    "判断每个候选章节是否受变更内容影响。仅输出 JSON 对象："
+    '{"results": ['
+    '{"section_id": "章节ID", "affected": true, "reason": "一句话理由"}'
+    "]}。"
+    "不要输出 Markdown，不要输出解释，不要遗漏 section_id。"
 )
 
 
@@ -54,6 +57,7 @@ class ImpactAnalyzer:
     ) -> None:
         self._emb = embedding_store
         self._llm = llm
+        self._ai_section_cache: dict[tuple[str, tuple[str, ...]], list[AffectedSection]] = {}
 
     @property
     def _ai_available(self) -> bool:
@@ -209,6 +213,14 @@ class ImpactAnalyzer:
         upstream_sections: list,
     ) -> list[AffectedSection]:
         """向量粗筛 + LLM 精判，返回真正受影响的章节。"""
+        cache_key = (
+            current_doc_id,
+            tuple(sorted(section.section_id for section in upstream_sections if section.section_id)),
+        )
+        cached = self._ai_section_cache.get(cache_key)
+        if cached is not None:
+            return list(cached)
+
         change_text = "\n".join(
             _section_text(s.heading, s.content) for s in upstream_sections
         )
@@ -233,44 +245,77 @@ class ImpactAnalyzer:
         if not candidates:
             return []
 
+        fallback_results = [
+            AffectedSection(
+                section_id=c["section_id"],
+                heading=c.get("heading", ""),
+                reason="向量相似度匹配（无 LLM 精判）" if self._llm is None else "向量相似度匹配（LLM 调用失败）",
+            )
+            for c in candidates
+        ]
+
         # ---- LLM 精判 ----
         if self._llm is None:
-            return [
-                AffectedSection(
-                    section_id=c["section_id"],
-                    heading=c.get("heading", ""),
-                    reason="向量相似度匹配（无 LLM 精判）",
-                )
-                for c in candidates
-            ]
+            self._ai_section_cache[cache_key] = fallback_results
+            return list(fallback_results)
 
-        results: list[AffectedSection] = []
-        for candidate in candidates:
-            candidate_text = candidate.get("text", "")[:800]
-            user_msg = (
-                f"## 变更内容\n{change_text[:1500]}\n\n"
-                f"## 候选章节\n{candidate_text}"
-            )
-            try:
-                raw = self._llm.generate_draft(
-                    system_prompt=_JUDGE_SYSTEM,
-                    context="",
-                    user_request=user_msg,
-                )
-                verdict = _parse_judge_response(raw)
-                if verdict.get("affected"):
-                    results.append(AffectedSection(
-                        section_id=candidate["section_id"],
-                        heading=candidate.get("heading", ""),
-                        reason=verdict.get("reason", "AI 判定受影响"),
-                    ))
-            except Exception:
-                results.append(AffectedSection(
-                    section_id=candidate["section_id"],
-                    heading=candidate.get("heading", ""),
-                    reason="向量相似度匹配（LLM 调用失败）",
-                ))
+        results = self._judge_candidates_with_llm(
+            change_text=change_text,
+            candidates=candidates,
+        )
+        if results is None:
+            self._ai_section_cache[cache_key] = fallback_results
+            return list(fallback_results)
+
+        self._ai_section_cache[cache_key] = results
         return results
+
+    def _judge_candidates_with_llm(
+        self,
+        *,
+        change_text: str,
+        candidates: list[dict],
+    ) -> list[AffectedSection] | None:
+        payload = [
+            {
+                "section_id": candidate["section_id"],
+                "heading": candidate.get("heading", ""),
+                "text": candidate.get("text", "")[:800],
+            }
+            for candidate in candidates
+        ]
+        user_msg = (
+            f"## 变更内容\n{change_text[:1500]}\n\n"
+            "## 候选章节(JSON)\n"
+            f"{json.dumps(payload, ensure_ascii=False)}"
+        )
+        try:
+            raw = self._llm.generate_draft(
+                system_prompt=_BATCH_JUDGE_SYSTEM,
+                context="",
+                user_request=user_msg,
+            )
+        except Exception:
+            return None
+
+        verdicts = _parse_batch_judge_response(raw)
+        if verdicts is None:
+            return None
+
+        affected_by_id = {
+            str(item.get("section_id", "")): item
+            for item in verdicts
+            if item.get("affected") and item.get("section_id")
+        }
+        return [
+            AffectedSection(
+                section_id=candidate["section_id"],
+                heading=candidate.get("heading", ""),
+                reason=str(affected_by_id[candidate["section_id"]].get("reason") or "AI 判定受影响"),
+            )
+            for candidate in candidates
+            if candidate["section_id"] in affected_by_id
+        ]
 
     # ----------------------------------------------------------------
     # Heuristic 降级路径 (原有逻辑)
@@ -462,8 +507,8 @@ class ImpactAnalyzer:
             pass
 
 
-def _parse_judge_response(raw: str) -> dict:
-    """从 LLM 返回文本中提取 JSON verdict。"""
+def _parse_json_object(raw: str) -> object | None:
+    """从 LLM 返回文本中提取 JSON 对象或数组。"""
     raw = raw.strip()
     start = raw.find("{")
     end = raw.rfind("}")
@@ -472,7 +517,28 @@ def _parse_judge_response(raw: str) -> dict:
             return json.loads(raw[start : end + 1])
         except json.JSONDecodeError:
             pass
-    return {"affected": False, "reason": ""}
+    start = raw.find("[")
+    end = raw.rfind("]")
+    if start >= 0 and end > start:
+        try:
+            return json.loads(raw[start : end + 1])
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
+def _parse_batch_judge_response(raw: str) -> list[dict] | None:
+    payload = _parse_json_object(raw)
+    if isinstance(payload, list):
+        items = payload
+    elif isinstance(payload, dict):
+        items = payload.get("results")
+    else:
+        return None
+
+    if not isinstance(items, list):
+        return None
+    return [item for item in items if isinstance(item, dict)]
 
 
 def _sev_rank(severity: str) -> int:

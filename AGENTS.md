@@ -6,7 +6,7 @@ docs/ - 项目文档真相源，承载设计、规格、执行计划、生成物
 fixtures/ - 航天领域样本文档语料，模拟跨部门、跨层级、跨版本对齐场景，作为未来解析、检索、评测与演示输入
 frontend/ - React 18 + TypeScript 5.7 + Vite 6 SPA 前端 (shadcn/ui amethyst-haze 主题)
 specs/ - Spec Kit 特性目录，保存每个顺序特性的 spec/plan/tasks/checklists/contracts 闭环产物
-src/ - Python 应用源码，含 legacy repository 栈与 graph/API 主工作流
+src/ - Python 应用源码，含 graph store/API/engine/evaluators/LLM/CLI 全栈
 tests/ - pytest 回归、契约与端到端场景集合
 var/ - 本地运行时产物目录（SQLite、上传文件、导出、向量索引）
 </directory>
@@ -51,6 +51,8 @@ README.md - 项目运行入口，提供安装、启动、冒烟与文档导航
 - SQLite (graph DB) + ChromaDB + sentence-transformers + OpenAI-compatible embeddings (005-openai-compatible-llm-client)
 - Python 3.13 (backend) + TypeScript 5.7 (frontend) + FastAPI, React 18, Vite 6, shadcn/ui, react-markdown + remark-gfm (新增) (006-draft-workbench-enhancement)
 - SQLite (var/harnetics-graph.db) (006-draft-workbench-enhancement)
+- Python 3.13 + TypeScript 5.7 + FastAPI, React 18, Vite 6, shadcn/ui, Tailwind v4 (007-remove-legacy-workflow)
+- SQLite (`var/harnetics-graph.db`) + ChromaDB (007-remove-legacy-workflow)
 
 ## Recent Changes
 - 001-aerospace-doc-alignment: Added Python 3.11+ + FastAPI (web framework), Jinja2 (templates), HTMX (frontend interactivity), litellm (LLM client), chromadb (vector store), sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 (embeddings), PyYAML (parsing), typer+rich (CLI), uvicorn (ASGI server), python-multipart (file upload)
