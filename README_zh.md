@@ -9,9 +9,9 @@
 
 航天工程师每天花 40–60% 的时间在文档编写和评审上。最耗时的不是"写"，而是"对齐"——确保一份文档与多部门、多层级的其他文档保持一致。Harnetics 通过文档图谱 + LLM 将这个过程从 2–3 天压缩到半天。
 
-![alt text](docs/image/home.png)
-
 > English documentation: [README.md](README.md)
+
+![alt text](docs/image/home.png)
 
 ## 为什么是 Harnetics
 

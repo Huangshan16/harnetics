@@ -7,9 +7,9 @@
 
 **Aerospace document alignment workbench** — cross-department traceability, draft generation, and change impact analysis powered by document graph and LLM.
 
-![alt text](docs/image/home.png)
-
 > 中文文档：[README_zh.md](README_zh.md)
+
+![alt text](docs/image/home.png)
 
 ## Why Harnetics
 
