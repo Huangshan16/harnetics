@@ -17,6 +17,7 @@ README.md - 面向开源社区的项目入口（英文为主），含 badges、Q
 LICENSE - Apache License 2.0
 Dockerfile - 容器镜像构建入口，封装 Python 运行时、依赖安装与 CLI 启动命令
 .dockerignore - 容器构建上下文裁剪规则，排除本地缓存、运行时产物与私有工作区材料
+docker-compose-local.yml - 本地模型 Docker Compose 配置（harnetics + Ollama + Qwen 预配置）
 docs/ARCHITECTURE.md - 当前系统结构、数据流、边界与演进方向
 docs/CONTRIBUTING.md - 贡献者指南（开发环境、分支策略、PR 流程、编码规范）
 docs/CODE_OF_CONDUCT.md - Contributor Covenant v2.1 社区行为准则
@@ -52,6 +53,7 @@ docs/CHANGELOG.md - 版本发布历史（Keep a Changelog 格式）
 - 2026-04-19: `specs/`、`.agents/`、`.specify/` 保持本地工作区；`docs/bank/` 与 `docs/daily/` 进入 `.gitignore`，公开协作文档迁入 `docs/` 根层统一承载
 - 2026-04-20: Dockerfile 改为纯 Python 轮子安装路径，移除易失败的 apt 构建依赖；新增 `.dockerignore` 缩减镜像构建上下文
 - 2026-04-20: Dockerfile 新增 Node 前端构建阶段并将 `frontend/dist` 打入运行时镜像，镜像拉取后可直接启动完整 SPA + API 应用
+- 2026-04-20: `009-cloud-deploy-settings` — 前端设置页面 (LLM/Embedding 运行时配置)、文档上传按钮接入后端 API、docker-compose 拆分云端/本地、README Docker 部署首选 + Qwen 模型对照表
 
 ## Active Technologies
 - Python 3.11+ + FastAPI (web framework), Jinja2 (templates), HTMX (frontend interactivity), litellm (LLM client), chromadb (vector store), sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 (embeddings), PyYAML (parsing), typer+rich (CLI), uvicorn (ASGI server), python-multipart (file upload) (001-aerospace-doc-alignment)

@@ -192,6 +192,9 @@ Ingest (Markdown/YAML)
 | `GET /api/impact/{report_id}` | Impact report detail |
 | `GET /api/graph/edges` | Raw graph edges |
 | `GET /api/status` | LLM/embedding configuration status |
+| `GET /api/settings` | Current runtime settings (keys masked) |
+| `PUT /api/settings` | Update runtime LLM/embedding config |
+| `POST /api/documents/upload` | Upload and ingest document |
 
 ## UI Routes
 
@@ -205,6 +208,7 @@ Ingest (Markdown/YAML)
 | `/impact` | Impact analysis |
 | `/impact/{report_id}` | Impact report |
 | `/graph` | Document graph visualization |
+| `/settings` | Runtime configuration |
 
 ## Testing
 
@@ -218,12 +222,38 @@ cd frontend && npm run build
 
 ## Docker
 
+### Cloud deployment (recommended)
+
 ```bash
-docker compose up
+docker compose up -d
 # → http://localhost:8000
 ```
 
-The `docker-compose.yml` includes an optional Ollama service with GPU passthrough.
+No LLM pre-configured — open the **Settings** page in the browser to enter your API key and model.
+
+> Public image: `ghcr.io/huangshan16/harnetics:latest` *(placeholder — not yet published)*
+
+### Local model deployment (Ollama)
+
+```bash
+docker compose -f docker-compose-local.yml up -d
+docker exec ollama ollama pull qwen3:8b
+docker exec ollama ollama pull nomic-embed-text
+# → http://localhost:8000 — pre-configured to use local Ollama
+```
+
+### Qwen3 local model reference
+
+| Model | Params | Min VRAM / RAM | Ollama name |
+|-------|--------|----------------|-------------|
+| Qwen3 0.6B | 0.6B | 1 GB | `qwen3:0.6b` |
+| Qwen3 1.7B | 1.7B | 2 GB | `qwen3:1.7b` |
+| Qwen3 4B | 4B | 4 GB | `qwen3:4b` |
+| Qwen3 8B | 8B | 6 GB | `qwen3:8b` |
+| Qwen3 14B | 14B | 10 GB | `qwen3:14b` |
+| Qwen3 30B-A3B (MoE) | 30B | 18 GB | `qwen3:30b-a3b` |
+| Qwen3 32B | 32B | 20 GB | `qwen3:32b` |
+| Qwen3 235B-A22B (MoE) | 235B | 140 GB | `qwen3:235b-a22b` |
 
 ## Project Structure
 

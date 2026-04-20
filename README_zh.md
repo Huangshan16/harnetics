@@ -194,6 +194,9 @@ curl http://localhost:8000/api/documents
 | `GET /api/impact/{report_id}` | 影响分析报告详情 |
 | `GET /api/graph/edges` | 原始图谱边数据 |
 | `GET /api/status` | LLM/Embedding 配置状态 |
+| `GET /api/settings` | 当前运行时配置（Key 脱敏） |
+| `PUT /api/settings` | 更新运行时 LLM/Embedding 配置 |
+| `POST /api/documents/upload` | 上传并导入文档 |
 
 ## 测试
 
@@ -207,12 +210,38 @@ cd frontend && npm run build
 
 ## Docker
 
+### 云端部署（推荐）
+
 ```bash
-docker compose up
+docker compose up -d
 # → http://localhost:8000
 ```
 
-`docker-compose.yml` 包含带 GPU 直通的可选 Ollama 服务。
+无预配置 LLM — 打开浏览器中的**设置**页面输入 API Key 和模型名。
+
+> 公有镜像: `ghcr.io/huangshan16/harnetics:latest`（占位 — 尚未发布）
+
+### 本地模型部署（Ollama）
+
+```bash
+docker compose -f docker-compose-local.yml up -d
+docker exec ollama ollama pull qwen3:8b
+docker exec ollama ollama pull nomic-embed-text
+# → http://localhost:8000 — 已预配置使用本地 Ollama
+```
+
+### Qwen3 本地模型参考
+
+| 模型 | 参数量 | 最低显存/内存 | Ollama 名称 |
+|------|--------|--------------|-------------|
+| Qwen3 0.6B | 0.6B | 1 GB | `qwen3:0.6b` |
+| Qwen3 1.7B | 1.7B | 2 GB | `qwen3:1.7b` |
+| Qwen3 4B | 4B | 4 GB | `qwen3:4b` |
+| Qwen3 8B | 8B | 6 GB | `qwen3:8b` |
+| Qwen3 14B | 14B | 10 GB | `qwen3:14b` |
+| Qwen3 30B-A3B (MoE) | 30B | 18 GB | `qwen3:30b-a3b` |
+| Qwen3 32B | 32B | 20 GB | `qwen3:32b` |
+| Qwen3 235B-A22B (MoE) | 235B | 140 GB | `qwen3:235b-a22b` |
 
 ## 项目结构
 

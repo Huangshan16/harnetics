@@ -1,0 +1,57 @@
+version: "3.9"
+
+# ================================================================
+# 本地模型配置 — harnetics + Ollama
+# 启动: docker compose -f docker-compose-local.yml up -d
+# 首次启动后拉取模型: docker exec ollama ollama pull qwen3:8b
+# ================================================================
+
+services:
+  harnetics:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./var:/app/var
+      - ./fixtures:/app/fixtures
+    environment:
+      - HARNETICS_GRAPH_DB_PATH=/app/var/harnetics.db
+      - HARNETICS_CHROMA_DIR=/app/var/chroma
+      - HARNETICS_LLM_MODEL=ollama/qwen3:8b
+      - HARNETICS_LLM_BASE_URL=http://ollama:11434
+      - HARNETICS_EMBEDDING_MODEL=ollama/nomic-embed-text
+      - HARNETICS_EMBEDDING_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  ollama_data:

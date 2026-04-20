@@ -52,15 +52,16 @@ def list_impact_reports() -> list[dict]:
 def analyze_impact(req: ImpactAnalyzeRequest, request: Request) -> dict:
     """触发变更影响分析，返回完整 ImpactReport。注入 embedding_store + llm 启用 AI 向量分析。"""
     try:
-        settings = request.app.state.settings
+        rt = request.app.state.runtime_settings
         embedding_store = getattr(request.app.state, "embedding_store", None)
 
         llm = None
-        if settings.llm_model:
+        llm_model = rt.get("llm_model")
+        if llm_model:
             llm = HarneticsLLM(
-                model=settings.llm_model,
-                api_base=settings.llm_base_url,
-                api_key=settings.llm_api_key,
+                model=llm_model,
+                api_base=rt.get("llm_base_url"),
+                api_key=rt.get("llm_api_key"),
             )
 
         analyzer = ImpactAnalyzer(embedding_store=embedding_store, llm=llm)

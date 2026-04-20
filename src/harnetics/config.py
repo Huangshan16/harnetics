@@ -1,9 +1,10 @@
-# [INPUT]: 依赖 os、pathlib、dotenv，定义运行时路径与 LLM/Embedding 配置
-# [OUTPUT]: 提供 Settings 数据对象、默认路径常量、.env 路径解析与 get_settings() 工厂
-# [POS]: harnetics 的运行时配置中心，统一定义 LLM、Embedding、存储路径参数，支持 .env 加载
+# [INPUT]: 依赖 os、pathlib、dotenv、threading
+# [OUTPUT]: 提供 Settings 数据对象、RuntimeSettingsManager 运行时覆盖层、默认路径常量、get_settings() 工厂
+# [POS]: harnetics 的运行时配置中心，支持 .env 加载 + API 层运行时覆盖（内存态）
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
 import os
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -103,3 +104,49 @@ def get_settings() -> Settings:
         embedding_base_url=embedding_base_url,
         server_port=int(server_port) if server_port else DEFAULT_SERVER_PORT,
     )
+
+
+# ================================================================
+# 运行时可变配置覆盖层
+# ================================================================
+
+# 允许通过 API 实时修改的字段白名单
+_MUTABLE_KEYS = frozenset({
+    "llm_model", "llm_base_url", "llm_api_key",
+    "embedding_model", "embedding_base_url", "embedding_api_key",
+})
+
+
+class RuntimeSettingsManager:
+    """在 get_settings() 基线之上叠加内存态覆盖值，线程安全。"""
+
+    def __init__(self, base: Settings) -> None:
+        self._base = base
+        self._overrides: dict[str, str] = {}
+        self._lock = threading.Lock()
+
+    # ---- 读 ----
+
+    def get(self, key: str) -> str:
+        with self._lock:
+            if key in self._overrides:
+                return self._overrides[key]
+        return getattr(self._base, key, "")
+
+    def snapshot(self) -> dict[str, str]:
+        """返回所有可变字段的当前有效值（覆盖值 > 基线值）。"""
+        result: dict[str, str] = {}
+        with self._lock:
+            for k in _MUTABLE_KEYS:
+                result[k] = self._overrides.get(k, getattr(self._base, k, ""))
+        return result
+
+    # ---- 写 ----
+
+    def update(self, changes: dict[str, str]) -> dict[str, str]:
+        """批量更新覆盖值，忽略不在白名单中的键，返回更新后的快照。"""
+        with self._lock:
+            for k, v in changes.items():
+                if k in _MUTABLE_KEYS:
+                    self._overrides[k] = v
+        return self.snapshot()

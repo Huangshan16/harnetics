@@ -1,6 +1,6 @@
 # [INPUT]: 依赖 FastAPI、pathlib、graph.store、config 与所有 api.routes.*
 # [OUTPUT]: 对外提供 create_api_app() 工厂函数
-# [POS]: api 包的应用装配层，注册全量 API 路由 + SPA 前端托管，支持 lifespan 启动 init_db
+# [POS]: api 包的应用装配层，注册全量 API 路由 + SPA 前端托管，挂载 RuntimeSettingsManager
 # [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from harnetics.config import get_settings
+from harnetics.config import get_settings, RuntimeSettingsManager
 from harnetics.graph.store import init_db
 from harnetics.api.routes.documents import router as documents_api_router
 from harnetics.api.routes.evaluate import router as evaluate_router
@@ -21,6 +21,7 @@ from harnetics.api.routes.draft import router as draft_router
 from harnetics.api.routes.impact import router as impact_router
 from harnetics.api.routes.graph import router as graph_router
 from harnetics.api.routes.status import router as status_router
+from harnetics.api.routes.settings import router as settings_router
 
 
 def _configure_harnetics_logging() -> None:
@@ -67,6 +68,7 @@ def create_api_app() -> FastAPI:
     app = FastAPI(title="Harnetics", lifespan=_lifespan)
 
     app.state.settings = settings
+    app.state.runtime_settings = RuntimeSettingsManager(settings)
 
     # ---- API 路由 ----
     app.include_router(documents_api_router)
@@ -75,6 +77,7 @@ def create_api_app() -> FastAPI:
     app.include_router(impact_router)
     app.include_router(graph_router)
     app.include_router(status_router)
+    app.include_router(settings_router)
 
     @app.get("/health")
     def healthcheck() -> dict[str, str]:

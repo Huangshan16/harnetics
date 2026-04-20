@@ -44,27 +44,30 @@ def generate_draft(req: DraftGenerateRequest, request: Request) -> dict:
         **req.extra,
     }
     try:
-        settings = request.app.state.settings
+        rt = request.app.state.runtime_settings
+        llm_model = rt.get("llm_model")
+        llm_base = rt.get("llm_base_url")
+        llm_key = rt.get("llm_api_key")
         logger.info(
             "draft.generate.start subject=%r related_doc_count=%d template_id=%s source_report_id=%s llm_model=%s llm_base=%s has_api_key=%s",
             req.subject,
             len(req.related_doc_ids),
             req.template_id or "<none>",
             req.source_report_id or "<none>",
-            settings.llm_model,
-            settings.llm_base_url or "<default>",
-            bool(settings.llm_api_key),
+            llm_model,
+            llm_base or "<default>",
+            bool(llm_key),
         )
         llm = HarneticsLLM(
-            model=settings.llm_model,
-            api_base=settings.llm_base_url,
-            api_key=settings.llm_api_key or None,
+            model=llm_model,
+            api_base=llm_base,
+            api_key=llm_key or None,
         )
         logger.info(
             "draft.generate.route configured_model=%s effective_model=%s configured_base=%s effective_base=%s",
-            settings.llm_model,
+            llm_model,
             llm.model,
-            settings.llm_base_url or "<default>",
+            llm_base or "<default>",
             llm.api_base or "<default>",
         )
         draft = DraftGenerator(llm=llm).generate(request_dict)

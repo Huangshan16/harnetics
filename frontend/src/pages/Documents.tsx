@@ -1,14 +1,14 @@
 /**
- * [INPUT]: 依赖 @/lib/api 的 fetchDocuments，依赖 @/types 的 Document
+ * [INPUT]: 依赖 @/lib/api 的 fetchDocuments/uploadDocument，依赖 @/types 的 Document
  * [OUTPUT]: 对外提供 Documents 页面组件
  * [POS]: pages 的文档库列表页，US1 核心入口
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Upload, Search } from 'lucide-react'
-import { fetchDocuments } from '@/lib/api'
+import { fetchDocuments, uploadDocument } from '@/lib/api'
 import type { Document } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,8 +35,11 @@ export default function Documents() {
   const [docs, setDocs] = useState<Document[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
+  const loadDocs = useCallback(() => {
     setLoading(true)
     fetchDocuments({
       department: dept === '全部部门' ? undefined : dept,
@@ -53,6 +56,27 @@ export default function Documents() {
       .finally(() => setLoading(false))
   }, [search, dept, type, level])
 
+  useEffect(() => { loadDocs() }, [loadDocs])
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files?.length) return
+    setUploading(true)
+    setUploadError('')
+    const errors: string[] = []
+    for (const file of Array.from(files)) {
+      try {
+        await uploadDocument(file)
+      } catch (err) {
+        errors.push(`${file.name}: ${err instanceof Error ? err.message : '上传失败'}`)
+      }
+    }
+    if (errors.length) setUploadError(errors.join('\n'))
+    setUploading(false)
+    loadDocs()
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   return (
     <div className="container mx-auto max-w-screen-xl px-4 py-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -60,11 +84,13 @@ export default function Documents() {
           <h1 className="text-2xl font-bold tracking-tight">文档库</h1>
           <p className="mt-1 text-muted-foreground">共 {total} 份文档 · 点击行查看详情</p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
           <Upload className="h-4 w-4" />
-          上传文档
+          {uploading ? '上传中…' : '上传文档'}
         </Button>
+        <input ref={fileInputRef} type="file" multiple accept=".md,.yaml,.yml" className="hidden" onChange={handleUpload} />
       </div>
+      {uploadError && <p className="text-sm text-destructive whitespace-pre-line">{uploadError}</p>}
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-xs">

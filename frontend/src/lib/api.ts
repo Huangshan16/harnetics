@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 @/types 的全部接口定义
- * [OUTPUT]: 对外提供 fetch 封装函数 (fetchDocuments/fetchDocument/fetchDraft/generateDraft 等)
+ * [OUTPUT]: 对外提供 fetch 封装函数 (fetchDocuments/fetchDocument/uploadDocument/fetchSettings/updateSettings 等)
  * [POS]: lib 的 API 通信层，被各 page 组件调用，统一处理请求/错误
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
  */
@@ -60,6 +60,48 @@ export function fetchDocument(docId: string): Promise<DocumentDetailResponse> {
 export function searchDocuments(query: string, topK = 10): Promise<DocumentSearchResponse> {
   const qs = new URLSearchParams({ q: query, top_k: String(topK) })
   return request<DocumentSearchResponse>(`/api/documents/search?${qs}`)
+}
+
+export interface UploadResult {
+  status: string
+  doc_id: string
+  title: string
+}
+
+export async function uploadDocument(file: File): Promise<UploadResult> {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch('/api/documents/upload', { method: 'POST', body: form })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`${res.status} ${res.statusText}: ${body}`)
+  }
+  return res.json() as Promise<UploadResult>
+}
+
+// ================================================================
+// 设置
+// ================================================================
+
+export interface SettingsData {
+  llm_model: string
+  llm_base_url: string
+  llm_api_key: string
+  embedding_model: string
+  embedding_base_url: string
+  embedding_api_key: string
+}
+
+export function fetchSettings(): Promise<SettingsData> {
+  return request<SettingsData>('/api/settings')
+}
+
+export function updateSettings(data: Partial<SettingsData>): Promise<SettingsData> {
+  return request<SettingsData>('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
 }
 
 // ================================================================
