@@ -39,12 +39,12 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/anthropic-sam/harnetics"
-Documentation = "https://github.com/anthropic-sam/harnetics#readme"
-ChineseDocs = "https://github.com/anthropic-sam/harnetics/blob/main/README_zh.md"
-Repository = "https://github.com/anthropic-sam/harnetics"
-Issues = "https://github.com/anthropic-sam/harnetics/issues"
-Changelog = "https://github.com/anthropic-sam/harnetics/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Huangshan16/harnetics"
+Documentation = "https://github.com/Huangshan16/harnetics#readme"
+ChineseDocs = "https://github.com/Huangshan16/harnetics/blob/main/README_zh.md"
+Repository = "https://github.com/Huangshan16/harnetics"
+Issues = "https://github.com/Huangshan16/harnetics/issues"
+Changelog = "https://github.com/Huangshan16/harnetics/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [

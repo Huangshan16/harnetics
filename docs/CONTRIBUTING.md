@@ -26,7 +26,7 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
    ```
 3. **Add upstream** remote:
    ```bash
-   git remote add upstream https://github.com/anthropic-sam/harnetics.git
+   git remote add upstream https://github.com/Huangshan16/harnetics.git
    ```
 
 ## Development Setup
@@ -170,11 +170,11 @@ This project follows a fractal documentation protocol:
 - **L2** (`/{module}/AGENTS.md`): Module member list and interfaces
 - **L3** (file headers): `[INPUT]/[OUTPUT]/[POS]/[PROTOCOL]` contracts
 
-When you add, remove, or move files, update the relevant AGENTS.md files. See [AGENTS.md](AGENTS.md) for details.
+When you add, remove, or move files, update the relevant AGENTS.md files. See [AGENTS.md](../AGENTS.md) for details.
 
 ## Reporting Bugs
 
-Use the [Bug Report](https://github.com/anthropic-sam/harnetics/issues/new?template=bug_report.yml) issue template. Include:
+Use the [Bug Report](https://github.com/Huangshan16/harnetics/issues/new?template=bug_report.yml) issue template. Include:
 
 - Steps to reproduce
 - Expected vs actual behavior
@@ -183,7 +183,7 @@ Use the [Bug Report](https://github.com/anthropic-sam/harnetics/issues/new?templ
 
 ## Questions?
 
-Open a [Discussion](https://github.com/anthropic-sam/harnetics/discussions) or reach out via Issues.
+Open a [Discussion](https://github.com/Huangshan16/harnetics/discussions) or reach out via Issues.
 
 ---
 

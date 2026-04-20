@@ -11,9 +11,82 @@
 
 > English documentation: [README.md](README.md)
 
----
+## 为什么是 Harnetics
 
-## 核心功能
+商业航天工程团队每天都在为“对齐税”付费：大量时间并不是花在写文档本身，而是花在找上游文档、核对 ICD 参数、确认版本是否一致，以及判断某次改动会波及哪些下游文档。
+
+- **Harnetics 是什么？** 一个面向工程文档对齐的本地优先工作台，把文档导入、关系构图、草稿生成、引注校验和影响分析串成一条可执行闭环。
+- **它解决什么具体痛点？** 它把跨部门文档准备从 2–3 天压缩到半天，尤其针对“需求、ICD、设计、测试大纲必须一起对齐”的真实工程场景。
+- **为什么它和普通 RAG / 文档助手不一样？** 它不是“对文件聊天”。Harnetics 会构建显式文档关系、校验引注真实性、标记参数冲突，并回答普通 RAG 不会回答的问题：上游文档一变，哪些下游文档和章节必须重审？
+
+## 3 分钟体验
+
+最短体验路径不是读代码，而是直接跑起来：
+
+1. 安装依赖
+2. 导入 fixtures 样本文档
+3. 启动应用
+4. 打开页面
+5. 生成一份 demo draft，或者查看一份 impact report
+
+```bash
+git clone https://github.com/Huangshan16/harnetics.git
+cd harnetics
+uv sync --dev
+cd frontend && npm install && cd ..
+uv run python -m harnetics.cli.main init --reset
+uv run python -m harnetics.cli.main ingest fixtures/
+uv run python -m harnetics.cli.main serve --reload
+```
+
+然后打开 `http://localhost:8000`，直接走这两条路径之一：
+
+- `草稿工作台`：为 `TQ-12 液氧甲烷发动机地面热试车测试大纲` 生成一份 demo 草稿
+- `变更影响`：查看 ICD 参数变化如何传导到设计文档和测试大纲
+
+## 核心闭环
+
+先记住这一条主链，而不是记所有模块名：
+
+```text
+导入文档
+  → 构建文档图谱
+    → 生成对齐草稿
+      → 评估引注与冲突
+        → 分析变更影响
+```
+
+- **导入文档**：解析 Markdown/YAML，抽取章节、元数据和 ICD 参数。
+- **构建文档图谱**：把需求、ICD、设计、模板和测试文档之间的依赖关系显式存起来。
+- **生成对齐草稿**：基于图谱检索拼出 LLM 上下文，输出带真实引注的草稿。
+- **评估引注与冲突**：运行 EA/EB/ED 质量门，检查缺失来源、陈旧引用和参数不一致。
+- **分析变更影响**：沿下游关系传播，定位哪些文档、哪些章节需要重审。
+
+## Demo 结果预览
+
+哪怕不看截图，系统输出也应该足够具体。
+
+**草稿生成示例**
+
+```markdown
+### 3.1 额定推力性能试验
+验证发动机在额定工况下的地面推力 >= 650 kN，混合比维持 3.5:1。 [📎 DOC-SYS-001 §3.2] [📎 DOC-ICD-001 ICD-PRP-001]
+
+> ⚠ 冲突：DOC-TST-003 仍引用旧版 ICD 中的 600 kN 推力值。
+```
+
+**影响分析示例**
+
+```text
+变更参数：ICD-PRP-001 地面推力 600 kN -> 650 kN
+受影响文档：
+- DOC-DES-001  | Critical | §3.1 推力设计点
+- DOC-TST-001  | Critical | §3.1 额定推力试验
+- DOC-TST-003  | Critical | §2.1 试验参数
+- DOC-OVR-001  | Major    | §4.2 动力指标
+```
+
+## 能力概览
 
 | 模块 | 说明 |
 |------|------|
@@ -23,23 +96,7 @@
 | **文档图谱** | 可视化文档间引用、派生、约束关系 |
 | **仪表盘** | 文档数量、草稿状态、陈旧引用、LLM 状态概览 |
 
-## 系统架构
-
-```
-文档入库 (Markdown/YAML)
-  → 解析 & 图谱索引 (SQLite + ChromaDB)
-    → LLM 草稿生成 (OpenAI-compatible)
-      → 质量门评估 (EA/EB/ED)
-        → 影响分析 (BFS + 向量检索)
-          → API / React SPA
-```
-
-- **后端**：Python 3.12+ · FastAPI · SQLite · ChromaDB · OpenAI SDK
-- **前端**：React 18 · TypeScript 5.7 · Vite 6 · Tailwind CSS v4 · shadcn/ui
-- **LLM**：OpenAI-compatible 路由，显式支持本地 Ollama 回退
-- **设计理念**：本地优先——所有数据默认留存在本机
-
-## 快速开始
+## 本地运行
 
 ### 环境要求
 
@@ -52,7 +109,7 @@
 ### 安装
 
 ```bash
-git clone https://github.com/anthropic-sam/harnetics.git
+git clone https://github.com/Huangshan16/harnetics.git
 cd harnetics
 uv sync --dev
 cd frontend && npm install && cd ..
@@ -106,6 +163,22 @@ curl http://localhost:8000/api/dashboard/stats
 curl http://localhost:8000/api/documents
 ```
 
+## 系统架构
+
+```
+文档入库 (Markdown/YAML)
+  → 解析 & 图谱索引 (SQLite + ChromaDB)
+    → LLM 草稿生成 (OpenAI-compatible)
+      → 质量门评估 (EA/EB/ED)
+        → 影响分析 (BFS + 向量检索)
+          → API / React SPA
+```
+
+- **后端**：Python 3.12+ · FastAPI · SQLite · ChromaDB · OpenAI SDK
+- **前端**：React 18 · TypeScript 5.7 · Vite 6 · Tailwind CSS v4 · shadcn/ui
+- **LLM**：OpenAI-compatible 路由，显式支持本地 Ollama 回退
+- **设计理念**：本地优先——所有数据默认留存在本机
+
 ## API 路由
 
 | 路由 | 说明 |
@@ -145,6 +218,11 @@ docker compose up
 
 ```
 harnetics/
+├── docs/                  # 公开项目文档 + 部分本地说明
+│   ├── ARCHITECTURE.md    # 对外公开的架构总览
+│   ├── CHANGELOG.md       # 版本历史
+│   ├── CODE_OF_CONDUCT.md # 社区行为准则
+│   └── CONTRIBUTING.md    # 贡献流程说明
 ├── src/harnetics/         # Python 后端
 │   ├── api/               #   FastAPI 应用工厂 + 路由 + SPA 托管
 │   │   └── routes/        #     documents / draft / impact / graph / status / evaluate
@@ -165,19 +243,19 @@ harnetics/
 ├── fixtures/              # 航天领域样本文档
 ├── tests/                 # pytest 测试套件
 ├── AGENTS.md              # 仓库总地图与工程协议
-├── ARCHITECTURE.md        # 对外公开的架构总览
-├── CONTRIBUTING.md        # 贡献流程说明
-├── CHANGELOG.md           # 版本历史
-└── README_zh.md           # 中文公开 README
+├── README.md              # 英文公开 README
+├── README_zh.md           # 中文公开 README
+└── var/                   # 运行时数据（SQLite、ChromaDB）— 已 gitignore
 ```
 
 ## 文档导航
 
 | 文档 | 说明 |
 |------|------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 系统结构、数据流、模块边界 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献指南 |
-| [CHANGELOG.md](CHANGELOG.md) | 版本发布历史 |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 系统结构、数据流、模块边界 |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | 贡献指南 |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | 版本发布历史 |
+| [docs/CODE_OF_CONDUCT.md](docs/CODE_OF_CONDUCT.md) | 社区行为准则 |
 | [README.md](README.md) | 英文公开 README |
 | [.env.example](.env.example) | 环境变量配置参考 |
 
@@ -193,9 +271,16 @@ harnetics/
 | **后续阶段（P2）** | 规模化与协作 | 从 SQLite 主路径演进到 PostgreSQL-ready 架构，引入更完整的审计/历史视图、团队评审流和实时协作端点 |
 | **后续阶段（P2）** | 领域深度 | 扩展 CAD 元数据接入、强化历史知识复用检索、增强跨部门追溯分析能力 |
 
+## Contributing: 从哪里开始
+
+- **文档解析器** 很适合作为第一类贡献点，尤其是 Markdown、YAML、ICD，以及后续 Word/PDF/Excel 接入。
+- **Evaluator** 是天然可扩展层，欢迎补充版本新鲜度、参数一致性和审查策略相关规则。
+- **graph/query API** 属于语义边界，涉及查询契约或追溯逻辑的变更请先讨论再动手。
+- **frontend / fixtures / docs** 也都欢迎贡献，尤其适合做体验优化、demo 强化和领域语料完善。
+
 ## 贡献
 
-欢迎贡献！请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解：
+欢迎贡献！请阅读 [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) 了解：
 
 - 开发环境搭建
 - 分支命名与 commit 规范
