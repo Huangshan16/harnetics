@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 
 
 DEFAULT_GRAPH_DB_PATH = Path("var/harnetics-graph.db")
@@ -66,22 +66,30 @@ def get_dotenv_path() -> Path | None:
 
 
 def get_settings() -> Settings:
-    """读取 .env 文件 + 环境变量覆盖默认值。"""
+    """读取 .env 文件 + 环境变量覆盖默认值，不污染进程环境。"""
     dotenv_path = get_dotenv_path()
-    if dotenv_path is not None:
-        load_dotenv(dotenv_path=dotenv_path, override=False)
+    dotenv_map = {
+        str(key): str(value)
+        for key, value in (dotenv_values(dotenv_path) if dotenv_path is not None else {}).items()
+        if key is not None and value is not None
+    }
 
-    raw_upload_dir = os.environ.get("HARNETICS_RAW_UPLOAD_DIR")
-    export_dir = os.environ.get("HARNETICS_EXPORT_DIR")
-    graph_db = os.environ.get("HARNETICS_GRAPH_DB_PATH")
-    chroma_dir = os.environ.get("HARNETICS_CHROMA_DIR")
-    llm_model = os.environ.get("HARNETICS_LLM_MODEL")
-    llm_url = os.environ.get("HARNETICS_LLM_BASE_URL")
-    llm_api_key = os.environ.get("HARNETICS_LLM_API_KEY", "")
-    embedding_model = os.environ.get("HARNETICS_EMBEDDING_MODEL")
-    embedding_api_key = os.environ.get("HARNETICS_EMBEDDING_API_KEY", "")
-    embedding_base_url = os.environ.get("HARNETICS_EMBEDDING_BASE_URL", "")
-    server_port = os.environ.get("HARNETICS_SERVER_PORT")
+    def _get(name: str, default: str | None = None) -> str | None:
+        if name in os.environ:
+            return os.environ[name]
+        return dotenv_map.get(name, default)
+
+    raw_upload_dir = _get("HARNETICS_RAW_UPLOAD_DIR")
+    export_dir = _get("HARNETICS_EXPORT_DIR")
+    graph_db = _get("HARNETICS_GRAPH_DB_PATH")
+    chroma_dir = _get("HARNETICS_CHROMA_DIR")
+    llm_model = _get("HARNETICS_LLM_MODEL")
+    llm_url = _get("HARNETICS_LLM_BASE_URL")
+    llm_api_key = _get("HARNETICS_LLM_API_KEY", "") or ""
+    embedding_model = _get("HARNETICS_EMBEDDING_MODEL")
+    embedding_api_key = _get("HARNETICS_EMBEDDING_API_KEY", "") or ""
+    embedding_base_url = _get("HARNETICS_EMBEDDING_BASE_URL", "") or ""
+    server_port = _get("HARNETICS_SERVER_PORT")
     return Settings(
         raw_upload_dir=Path(raw_upload_dir) if raw_upload_dir else DEFAULT_RAW_UPLOAD_DIR,
         export_dir=Path(export_dir) if export_dir else DEFAULT_EXPORT_DIR,

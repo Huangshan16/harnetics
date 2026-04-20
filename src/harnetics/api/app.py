@@ -60,6 +60,10 @@ async def _lifespan(app: FastAPI):
 def create_api_app() -> FastAPI:
     settings = get_settings()
     _configure_harnetics_logging()
+
+    # ---- 工厂阶段先初始化图谱库，确保无 lifespan 的测试客户端也能安全访问状态端点 ----
+    init_db(settings.graph_db_path)
+
     app = FastAPI(title="Harnetics", lifespan=_lifespan)
 
     app.state.settings = settings
