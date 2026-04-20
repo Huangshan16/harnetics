@@ -1,4 +1,4 @@
-version: "3.9"
+
 
 # ================================================================
 # 云端默认配置 — 仅 harnetics 服务，LLM/Embedding 通过设置页面配置
@@ -7,6 +7,8 @@ version: "3.9"
 
 services:
   harnetics:
+    image: sam291/harnetics:v0.1.2
+    container_name: harnetics
     build:
       context: .
       dockerfile: Dockerfile
