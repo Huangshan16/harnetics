@@ -19,28 +19,20 @@ Commercial aerospace engineers pay an alignment tax every day: 40–60% of their
 
 ## 3-Minute Experience
 
-Run the shortest possible path from clone to visible output:
-
-1. Install dependencies.
-2. Import the fixture corpus.
-3. Start the app.
-4. Open the dashboard.
-5. Generate a demo draft or inspect an impact report.
+No Python or Node setup required — just Docker:
 
 ```bash
 git clone https://github.com/Huangshan16/harnetics.git
 cd harnetics
-uv sync --dev
-cd frontend && npm install && cd ..
-uv run python -m harnetics.cli.main init --reset
-uv run python -m harnetics.cli.main ingest fixtures/
-uv run python -m harnetics.cli.main serve --reload
+docker compose up -d
 ```
 
-Then open `http://localhost:8000` and try one of these two flows:
+Open `http://localhost:8000`, then:
 
-- `Draft workbench` → generate a draft for `TQ-12 liquid oxygen methane engine ground hot-fire test outline`
-- `Impact analysis` → inspect how an ICD parameter change propagates into downstream test and design documents
+1. Go to **Settings** → enter your LLM API key and model (e.g. `gpt-4o-mini`).
+2. Go to **Documents** → click **Upload** and import a few files from the `fixtures/` folder.
+3. Go to **Draft workbench** → generate a draft for `TQ-12 liquid oxygen methane engine ground hot-fire test outline`.
+4. Or open **Impact analysis** → inspect how an ICD parameter change propagates into downstream documents.
 
 ## Core Loop
 
@@ -242,18 +234,17 @@ docker exec ollama ollama pull nomic-embed-text
 # → http://localhost:8000 — pre-configured to use local Ollama
 ```
 
-### Qwen3 local model reference
+### Qwen3.5 local model reference
 
-| Model | Params | Min VRAM / RAM | Ollama name |
-|-------|--------|----------------|-------------|
-| Qwen3 0.6B | 0.6B | 1 GB | `qwen3:0.6b` |
-| Qwen3 1.7B | 1.7B | 2 GB | `qwen3:1.7b` |
-| Qwen3 4B | 4B | 4 GB | `qwen3:4b` |
-| Qwen3 8B | 8B | 6 GB | `qwen3:8b` |
-| Qwen3 14B | 14B | 10 GB | `qwen3:14b` |
-| Qwen3 30B-A3B (MoE) | 30B | 18 GB | `qwen3:30b-a3b` |
-| Qwen3 32B | 32B | 20 GB | `qwen3:32b` |
-| Qwen3 235B-A22B (MoE) | 235B | 140 GB | `qwen3:235b-a22b` |
+| Model | Params | 4-bit VRAM | Ollama name | Suitable for |
+|-------|--------|------------|-------------|--------------|
+| Qwen3.5 0.8B | 0.8B | 2–4 GB | `qwen3.5:0.8b` | Thin & light laptop, CPU-only |
+| Qwen3.5 2B | 2B | 4–6 GB | `qwen3.5:2b` | Regular laptop |
+| Qwen3.5 4B | 4B | 6–8 GB | `qwen3.5:4b` | Entry-level GPU / Apple Silicon base |
+| Qwen3.5 9B *(latest)* | 9B | 10–14 GB | `qwen3.5:9b` | RTX 3060/4060, 24 GB Mac |
+| Qwen3.5 27B | 27B | 22–28 GB | `qwen3.5:27b` | 24 GB+ VRAM / 48–64 GB Mac |
+| Qwen3.5 35B-A3B *(MoE)* | 35B | 24–32 GB | `qwen3.5:35b` | 32 GB+ high-VRAM card |
+| Qwen3.5 122B-A10B *(MoE)* | 122B | 90–120 GB | `qwen3.5:122b` | Multi-GPU workstation / server |
 
 ## Project Structure
 

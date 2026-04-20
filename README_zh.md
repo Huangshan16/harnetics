@@ -21,28 +21,20 @@
 
 ## 3 分钟体验
 
-最短体验路径不是读代码，而是直接跑起来：
-
-1. 安装依赖
-2. 导入 fixtures 样本文档
-3. 启动应用
-4. 打开页面
-5. 生成一份 demo draft，或者查看一份 impact report
+无需配置 Python 或 Node，只需 Docker：
 
 ```bash
 git clone https://github.com/Huangshan16/harnetics.git
 cd harnetics
-uv sync --dev
-cd frontend && npm install && cd ..
-uv run python -m harnetics.cli.main init --reset
-uv run python -m harnetics.cli.main ingest fixtures/
-uv run python -m harnetics.cli.main serve --reload
+docker compose up -d
 ```
 
-然后打开 `http://localhost:8000`，直接走这两条路径之一：
+打开 `http://localhost:8000`，然后：
 
-- `草稿工作台`：为 `TQ-12 液氧甲烷发动机地面热试车测试大纲` 生成一份 demo 草稿
-- `变更影响`：查看 ICD 参数变化如何传导到设计文档和测试大纲
+1. 进入**设置**页面，填入云端 LLM API Key 和模型名（如 `gpt-4o-mini`）。
+2. 进入**文档库** → 点击**上传文档**，从 `fixtures/` 目录导入几个样本文件。
+3. 进入**草稿工作台**，为 `TQ-12 液氧甲烷发动机地面热试车测试大纲` 生成一份对齐草稿。
+4. 或者打开**变更影响**，查看 ICD 参数变化如何传导到下游文档。
 
 ## 核心闭环
 
@@ -230,18 +222,17 @@ docker exec ollama ollama pull nomic-embed-text
 # → http://localhost:8000 — 已预配置使用本地 Ollama
 ```
 
-### Qwen3 本地模型参考
+### Qwen3.5 本地模型参考
 
-| 模型 | 参数量 | 最低显存/内存 | Ollama 名称 |
-|------|--------|--------------|-------------|
-| Qwen3 0.6B | 0.6B | 1 GB | `qwen3:0.6b` |
-| Qwen3 1.7B | 1.7B | 2 GB | `qwen3:1.7b` |
-| Qwen3 4B | 4B | 4 GB | `qwen3:4b` |
-| Qwen3 8B | 8B | 6 GB | `qwen3:8b` |
-| Qwen3 14B | 14B | 10 GB | `qwen3:14b` |
-| Qwen3 30B-A3B (MoE) | 30B | 18 GB | `qwen3:30b-a3b` |
-| Qwen3 32B | 32B | 20 GB | `qwen3:32b` |
-| Qwen3 235B-A22B (MoE) | 235B | 140 GB | `qwen3:235b-a22b` |
+| 模型 | 参数量 | 本地硬件显存建议 | Ollama 名称 | 适合机器 |
+|------|--------|----------------|-------------|----------|
+| Qwen3.5 0.8B | 0.8B | 2–4 GB | `qwen3.5:0.8b` | 轻薄本、CPU |
+| Qwen3.5 2B | 2B | 4–6 GB | `qwen3.5:2b` | 普通笔记本 |
+| Qwen3.5 4B | 4B | 6–8 GB | `qwen3.5:4b` | 入门独显 / Apple Silicon 入门机 |
+| Qwen3.5 9B *(latest)* | 9B | 10–14 GB | `qwen3.5:9b` | RTX 3060/4060、24GB Mac |
+| Qwen3.5 27B | 27B | 22–28 GB | `qwen3.5:27b` | 24GB+ 显存 / 48–64GB Mac |
+| Qwen3.5 35B-A3B *(MoE)* | 35B | 24–32 GB | `qwen3.5:35b` | 32GB+ 高显存卡 |
+| Qwen3.5 122B-A10B *(MoE)* | 122B | 90–120 GB | `qwen3.5:122b` | 多卡工作站 / 服务器 |
 
 ## 项目结构
 

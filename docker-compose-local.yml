@@ -3,7 +3,7 @@ version: "3.9"
 # ================================================================
 # 本地模型配置 — harnetics + Ollama
 # 启动: docker compose -f docker-compose-local.yml up -d
-# 首次启动后拉取模型: docker exec ollama ollama pull qwen3:8b
+# 首次启动后拉取模型: docker exec ollama ollama pull qwen3.5:9b
 # ================================================================
 
 services:
@@ -19,7 +19,7 @@ services:
     environment:
       - HARNETICS_GRAPH_DB_PATH=/app/var/harnetics.db
       - HARNETICS_CHROMA_DIR=/app/var/chroma
-      - HARNETICS_LLM_MODEL=ollama/qwen3:8b
+      - HARNETICS_LLM_MODEL=ollama/qwen3.5:9b
       - HARNETICS_LLM_BASE_URL=http://ollama:11434
       - HARNETICS_EMBEDDING_MODEL=ollama/nomic-embed-text
       - HARNETICS_EMBEDDING_BASE_URL=http://ollama:11434
