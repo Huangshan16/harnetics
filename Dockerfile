@@ -13,14 +13,18 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_DEFAULT_TIMEOUT=180 \
     PYTHONPATH=/app/src \
     HARNETICS_GRAPH_DB_PATH=/app/var/harnetics.db \
-    HARNETICS_CHROMA_DIR=/app/var/chroma
+    HARNETICS_CHROMA_DIR=/app/var/chroma \
+    UV_NO_CACHE=1 \
+    UV_SYSTEM_PYTHON=1
 
 WORKDIR /app
+
+# ---- uv 二进制（本地预下载缓存，避免每次构建重复拉取）----
+# 首次使用请执行：
+#   mkdir -p .docker && curl -L https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-unknown-linux-musl.tar.gz | tar -xz -C .docker --strip-components=1
+COPY .docker/uv /usr/local/bin/uv
 
 # ---- 安装项目依赖：先复制元数据与源码，再直接安装项目包 ----
 COPY pyproject.toml README.md ./
@@ -29,7 +33,7 @@ COPY fixtures/ ./fixtures/
 COPY --from=frontend-builder /frontend/dist ./frontend/dist
 
 # ---- 运行时镜像：保留 API/CLI/Chroma/OpenAI 路径，省略本地 sentence-transformers + torch 大包 ----
-RUN pip install --no-cache-dir --retries 20 --timeout 180 \
+RUN uv pip install \
         "fastapi>=0.116.0" \
         "python-frontmatter>=1.1.0" \
         "PyYAML>=6.0.2" \
@@ -41,7 +45,7 @@ RUN pip install --no-cache-dir --retries 20 --timeout 180 \
         "rich>=13.9.0" \
         "openai>=1.5.0" \
         "python-multipart>=0.0.26" \
-    && pip install --no-cache-dir --retries 20 --timeout 180 --no-deps .
+    && uv pip install --no-deps .
 
 # ---- 运行时目录 ----
 RUN mkdir -p /app/var/chroma
