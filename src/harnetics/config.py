@@ -6,9 +6,21 @@
 import os
 import threading
 from dataclasses import dataclass
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from dotenv import dotenv_values
+
+# ================================================================
+# 时区工具 — 北京时间 (CST = UTC+8)
+# ================================================================
+
+CST = timezone(timedelta(hours=8))
+
+
+def now_cst() -> datetime:
+    """返回当前北京时间（CST，UTC+8）带时区信息。"""
+    return datetime.now(CST)
 
 
 DEFAULT_GRAPH_DB_PATH = Path("var/harnetics-graph.db")

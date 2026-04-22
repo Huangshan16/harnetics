@@ -10,6 +10,7 @@ import logging
 import re
 import uuid
 from datetime import datetime, timezone
+from harnetics.config import now_cst
 
 from harnetics.graph import store
 from harnetics.llm.client import HarneticsLLM
@@ -30,7 +31,7 @@ class DraftGenerator:
         self._emb = embedding_store  # EmbeddingStore，可选
 
     def generate(self, request: dict) -> AlignedDraft:
-        draft_id = f"DRAFT-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
+        draft_id = f"DRAFT-{now_cst().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
         generated_by = _llm_identifier(self._llm)
         subject = request.get("subject", "")
         related_doc_ids: list[str] = request.get("related_doc_ids", [])

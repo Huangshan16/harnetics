@@ -11,6 +11,7 @@ import re
 import uuid
 from collections import deque
 from datetime import datetime, timezone
+from harnetics.config import now_cst
 
 from harnetics.graph import store
 from harnetics.models.impact import AffectedSection, ImpactReport, ImpactedDoc, SectionDiff
@@ -126,7 +127,7 @@ class ImpactAnalyzer:
             changed_sections=changed_sections,
             impacted_docs=impacted_docs,
             summary="\n".join(summary_lines),
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=now_cst().isoformat(),
             analysis_mode=analysis_mode,
         )
 
